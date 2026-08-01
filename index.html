@@ -3,80 +3,163 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#fbf6ef" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="default" />
   <meta name="apple-mobile-web-app-title" content="Nos prénoms" />
-  <title>Nos prénoms — Quentin & Anne‑Cha</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%A7%B8%3C/text%3E%3C/svg%3E" />
+  <title>Nos prénoms — Quentin &amp; Anne‑Cha</title>
   <style>
     :root {
-      --bg: #f7f2ec;
-      --card: #fffdf9;
-      --text: #26231f;
-      --muted: #766f67;
-      --border: #e4dbd1;
-      --accent: #332f2a;
-      --like: #dff1e3;
-      --maybe: #fff0c2;
-      --no: #f4d8d6;
+      --bg-1: #fbf3ea;
+      --bg-2: #f3e6da;
+      --card: rgba(255,255,255,.86);
+      --card-solid: #fffdfa;
+      --text: #2b2620;
+      --muted: #85796d;
+      --border: #e9dcc9;
+      --accent: #b5623c;
+      --accent-dark: #8f4a2c;
+      --accent-contrast: #ffffff;
+      --like: #d9efdd;
+      --like-text: #2f6b3f;
+      --maybe: #fbedc0;
+      --maybe-text: #7a5c0e;
+      --no: #f6dbd7;
+      --no-text: #93392f;
+      --shadow: 0 10px 30px rgba(80, 55, 30, .08);
+      --radius: 20px;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg-1: #1c1814;
+        --bg-2: #241d17;
+        --card: rgba(38, 32, 27, .82);
+        --card-solid: #241f1a;
+        --text: #f3ece2;
+        --muted: #a89b8b;
+        --border: #3c332a;
+        --accent: #e08a5f;
+        --accent-dark: #f2a377;
+        --accent-contrast: #241a13;
+        --like: #1f3427;
+        --like-text: #8fd6a3;
+        --maybe: #3a3218;
+        --maybe-text: #f0cf74;
+        --no: #3a2321;
+        --no-text: #f0938a;
+        --shadow: 0 10px 30px rgba(0,0,0,.35);
+      }
     }
     * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-    html { background: var(--bg); }
+    html { background: var(--bg-1); }
     body {
       margin: 0;
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
-      background: var(--bg);
+      background:
+        radial-gradient(1200px 600px at 15% -10%, var(--bg-2), transparent),
+        radial-gradient(900px 500px at 110% 10%, var(--bg-2), transparent),
+        var(--bg-1);
       color: var(--text);
       min-height: 100vh;
     }
     .container {
-      max-width: 760px;
+      max-width: 560px;
       margin: 0 auto;
-      padding: max(20px, env(safe-area-inset-top)) 16px max(50px, env(safe-area-inset-bottom));
+      padding: max(20px, env(safe-area-inset-top)) 16px max(60px, env(safe-area-inset-bottom));
     }
-    h1 { font-size: 2rem; margin: 6px 0 4px; }
-    h2 { margin-top: 0; font-size: 1.25rem; }
-    p { color: var(--muted); line-height: 1.45; }
-    .subtitle { margin-top: 0; }
+    header.top { text-align: center; margin-bottom: 6px; }
+    header.top .emoji { font-size: 2.1rem; line-height: 1; }
+    h1 {
+      font-size: 1.9rem;
+      margin: 6px 0 2px;
+      letter-spacing: -.02em;
+      background: linear-gradient(90deg, var(--accent-dark), var(--accent));
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+    }
+    h2 { margin-top: 0; font-size: 1.15rem; }
+    p { color: var(--muted); line-height: 1.5; margin: 6px 0; }
+    .subtitle { margin-top: 0; text-align: center; }
+    .chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: .82rem;
+      font-weight: 650;
+      color: var(--accent-dark);
+      background: color-mix(in srgb, var(--accent) 14%, transparent);
+      border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
+      padding: 5px 12px;
+      border-radius: 999px;
+      margin: 8px auto 0;
+    }
+    .chip button {
+      all: unset;
+      cursor: pointer;
+      font-size: .75rem;
+      text-decoration: underline;
+      color: var(--accent-dark);
+      opacity: .8;
+    }
     .card {
       background: var(--card);
+      backdrop-filter: blur(6px);
       border: 1px solid var(--border);
-      border-radius: 20px;
+      border-radius: var(--radius);
       padding: 18px;
-      margin-top: 16px;
-      box-shadow: 0 5px 22px rgba(0,0,0,.04);
+      margin-top: 14px;
+      box-shadow: var(--shadow);
+      animation: rise .35s ease both;
+    }
+    @keyframes rise {
+      from { opacity: 0; transform: translateY(8px); }
+      to { opacity: 1; transform: translateY(0); }
     }
     textarea {
       width: 100%;
-      min-height: 170px;
+      min-height: 150px;
       padding: 12px;
       border-radius: 12px;
       border: 1px solid var(--border);
       font: inherit;
       resize: vertical;
-      background: white;
+      background: var(--card-solid);
+      color: var(--text);
     }
     button {
       appearance: none;
       border: 1px solid var(--border);
-      background: white;
+      background: var(--card-solid);
       color: var(--text);
       padding: 12px 14px;
       border-radius: 13px;
       cursor: pointer;
       font: inherit;
       font-weight: 650;
-      min-height: 46px;
+      min-height: 48px;
+      transition: transform .1s ease, box-shadow .15s ease;
     }
+    button:active { transform: scale(.97); }
     button.primary {
-      background: var(--accent);
-      color: white;
-      border-color: var(--accent);
+      background: linear-gradient(135deg, var(--accent), var(--accent-dark));
+      color: var(--accent-contrast);
+      border-color: transparent;
+      box-shadow: 0 6px 16px color-mix(in srgb, var(--accent) 45%, transparent);
+    }
+    button.ghost {
+      background: transparent;
+      border-color: var(--border);
+      color: var(--muted);
+      font-weight: 600;
     }
     button.big {
       width: 100%;
       min-height: 58px;
       font-size: 1.05rem;
     }
+    button:disabled { opacity: .45; cursor: not-allowed; transform: none; }
     .toolbar {
       display: flex;
       gap: 10px;
@@ -89,129 +172,205 @@
       display: grid;
       grid-template-columns: 1fr 1fr;
       gap: 12px;
-      margin-top: 16px;
     }
     .person-card {
-      padding: 18px;
+      padding: 20px 14px;
       border: 1px solid var(--border);
       border-radius: 18px;
-      background: white;
+      background: var(--card-solid);
       text-align: center;
     }
-    .person-name { font-weight: 800; font-size: 1.15rem; margin-bottom: 4px; }
-    .person-status { color: var(--muted); font-size: .9rem; margin-bottom: 12px; }
-    .name-box {
-      text-align: center;
-      padding: 22px 10px 12px;
+    .person-card.you { border-color: color-mix(in srgb, var(--accent) 55%, var(--border)); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 12%, transparent); }
+    .person-emoji { font-size: 1.6rem; }
+    .person-name { font-weight: 800; font-size: 1.1rem; margin: 2px 0 4px; }
+    .person-status { color: var(--muted); font-size: .85rem; margin-bottom: 12px; min-height: 1.2em; }
+    details { margin-top: 14px; }
+    details > summary {
+      cursor: pointer;
+      font-weight: 650;
+      list-style: none;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      color: var(--accent-dark);
     }
-    .counter {
-      color: var(--muted);
-      font-size: .9rem;
-      margin-bottom: 8px;
-    }
+    details > summary::-webkit-details-marker { display: none; }
+    details > summary::before { content: "▸"; transition: transform .15s ease; display: inline-block; }
+    details[open] > summary::before { transform: rotate(90deg); }
+    details .inner { margin-top: 12px; }
+    .name-box { text-align: center; padding: 10px 4px 4px; }
+    .counter { color: var(--muted); font-size: .88rem; margin-bottom: 8px; }
     .current-name {
-      font-size: clamp(2.2rem, 10vw, 4rem);
+      font-size: clamp(2.1rem, 11vw, 3.6rem);
       font-weight: 800;
       letter-spacing: -.03em;
-      margin: 8px 0 22px;
+      margin: 10px 0 24px;
       min-height: 1.2em;
+      transition: opacity .15s ease, transform .15s ease;
     }
-    .vote-buttons {
-      display: grid;
-      gap: 10px;
-    }
-    .vote-buttons button { font-size: 1.05rem; min-height: 56px; }
-    .like { background: var(--like); }
-    .maybe { background: var(--maybe); }
-    .no { background: var(--no); }
+    .current-name.swap { opacity: 0; transform: translateY(6px); }
+    .vote-buttons { display: grid; gap: 10px; }
+    .vote-buttons button { font-size: 1.08rem; min-height: 58px; }
+    .like { background: var(--like); color: var(--like-text); }
+    .maybe { background: var(--maybe); color: var(--maybe-text); }
+    .no { background: var(--no); color: var(--no-text); }
     .progress {
-      height: 7px;
-      background: #eee7de;
+      height: 8px;
+      background: color-mix(in srgb, var(--border) 70%, transparent);
       border-radius: 99px;
       overflow: hidden;
-      margin: 14px 0 2px;
+      margin: 6px 0 14px;
     }
     .progress > div {
       height: 100%;
-      background: var(--accent);
-      transition: width .2s ease;
+      background: linear-gradient(90deg, var(--accent), var(--accent-dark));
+      transition: width .25s ease;
     }
     .match {
       padding: 13px 14px;
       border: 1px solid var(--border);
       border-radius: 14px;
       margin-top: 9px;
-      background: white;
+      background: var(--card-solid);
       display: flex;
       align-items: center;
       justify-content: space-between;
       gap: 10px;
     }
-    .match strong { font-size: 1.07rem; }
+    .match strong { font-size: 1.08rem; }
     .badge {
-      font-size: .8rem;
-      padding: 5px 8px;
+      font-size: .78rem;
+      padding: 5px 9px;
       border-radius: 999px;
       white-space: nowrap;
+      font-weight: 650;
     }
-    .badge.top { background: var(--like); }
-    .badge.maybe { background: var(--maybe); }
+    .badge.top { background: var(--like); color: var(--like-text); }
+    .badge.maybe { background: var(--maybe); color: var(--maybe-text); }
     .summary {
       white-space: pre-wrap;
       font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-      font-size: .88rem;
-      line-height: 1.45;
-      background: #f7f4ef;
+      font-size: .85rem;
+      line-height: 1.5;
+      background: var(--card-solid);
       border: 1px solid var(--border);
       border-radius: 12px;
       padding: 13px;
       max-height: 320px;
       overflow: auto;
+      color: var(--text);
     }
     .small { font-size: .85rem; color: var(--muted); }
-    .danger { color: #9a3131; }
-    @media (max-width: 540px) {
+    .center { text-align: center; }
+    #toast {
+      position: fixed;
+      left: 50%;
+      bottom: max(24px, env(safe-area-inset-bottom));
+      transform: translate(-50%, 20px);
+      background: var(--accent-dark);
+      color: #fff;
+      padding: 12px 18px;
+      border-radius: 999px;
+      font-size: .9rem;
+      font-weight: 600;
+      box-shadow: 0 10px 26px rgba(0,0,0,.25);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity .2s ease, transform .2s ease;
+      max-width: 90vw;
+      text-align: center;
+      z-index: 50;
+    }
+    #toast.show { opacity: 1; transform: translate(-50%, 0); pointer-events: auto; }
+    @media (max-width: 380px) {
       .people { grid-template-columns: 1fr; }
-      .toolbar { flex-direction: column; }
     }
   </style>
 </head>
 <body>
 <div class="container">
-  <h1>Nos prénoms</h1>
-  <p class="subtitle">Quentin & Anne‑Cha</p>
+  <header class="top">
+    <div class="emoji">🧸</div>
+    <h1>Nos prénoms</h1>
+    <p class="subtitle">Quentin &amp; Anne‑Cha</p>
+    <div id="identityChip" class="chip hidden">
+      📱 Ce téléphone : <strong id="identityChipName"></strong>
+      <button onclick="changeIdentity()">changer</button>
+    </div>
+  </header>
 
-  <section id="home">
+  <section id="picker">
+    <div class="card center">
+      <h2>Ce téléphone est à qui ?</h2>
+      <p>Chacun vote séparément sur son propre téléphone. Vos choix restent privés tant qu'ils ne sont pas partagés.</p>
+      <div class="toolbar">
+        <button class="primary big" onclick="choosePerson('quentin')">👦 Quentin</button>
+        <button class="primary big" onclick="choosePerson('anne')">👧 Anne‑Cha</button>
+      </div>
+    </div>
+  </section>
+
+  <section id="home" class="hidden">
     <div class="card">
-      <h2>Chacun vote en secret</h2>
-      <p>Quentin et Anne‑Cha font leur sélection séparément. Les choix de l'autre restent cachés jusqu'à ce que vous révéliez les résultats.</p>
-
+      <h2>Vos votes</h2>
       <div class="people">
-        <div class="person-card">
+        <div class="person-card" id="cardQuentin">
+          <div class="person-emoji">👦</div>
           <div class="person-name">Quentin</div>
-          <div class="person-status" id="statusQuentin">Pas commencé</div>
-          <button class="big" onclick="startVoting('quentin')">Voter</button>
+          <div class="person-status" id="statusQuentin">—</div>
         </div>
-        <div class="person-card">
+        <div class="person-card" id="cardAnne">
+          <div class="person-emoji">👧</div>
           <div class="person-name">Anne‑Cha</div>
-          <div class="person-status" id="statusAnne">Pas commencé</div>
-          <button class="big" onclick="startVoting('anne')">Voter</button>
+          <div class="person-status" id="statusAnne">—</div>
         </div>
       </div>
-
       <div class="toolbar">
-        <button class="primary" onclick="showResults()">Révéler nos matchs</button>
+        <button class="primary big" id="voteBtn" onclick="startVoting()">Voter</button>
       </div>
     </div>
 
     <div class="card">
-      <h2>Liste de prénoms</h2>
-      <p class="small">Un prénom par ligne, ou séparés par des virgules. Vous pouvez remplacer complètement ma sélection.</p>
-      <textarea id="namesInput"></textarea>
+      <h2>Synchroniser avec l'autre téléphone</h2>
+      <p class="small">Pas de serveur : vos votes restent sur votre téléphone jusqu'à ce que vous les envoyiez vous‑même, via n'importe quelle appli de message.</p>
       <div class="toolbar">
-        <button onclick="saveNames()">Enregistrer la liste</button>
-        <button onclick="resetVotes()">Effacer les votes</button>
+        <button class="primary" onclick="shareVotes()">📤 Envoyer mes votes</button>
       </div>
+      <details id="importDetails">
+        <summary>Importer un lien reçu manuellement</summary>
+        <div class="inner">
+          <textarea id="importInput" placeholder="Colle ici le lien ou le code reçu"></textarea>
+          <div class="toolbar">
+            <button onclick="importManual()">Importer</button>
+          </div>
+        </div>
+      </details>
+    </div>
+
+    <div class="card">
+      <button class="big" onclick="showResults()">✨ Voir nos résultats</button>
+    </div>
+
+    <div class="card">
+      <details>
+        <summary>Modifier la liste de prénoms</summary>
+        <div class="inner">
+          <p class="small">Un prénom par ligne, ou séparés par des virgules.</p>
+          <textarea id="namesInput"></textarea>
+          <div class="toolbar">
+            <button onclick="saveNames()">Enregistrer la liste</button>
+          </div>
+        </div>
+      </details>
+      <details>
+        <summary>Réinitialiser</summary>
+        <div class="inner">
+          <p class="small">Efface uniquement les votes stockés sur ce téléphone.</p>
+          <div class="toolbar">
+            <button onclick="resetVotes()">Effacer mes votes</button>
+          </div>
+        </div>
+      </details>
     </div>
   </section>
 
@@ -224,14 +383,14 @@
         <div class="current-name" id="currentName"></div>
 
         <div class="vote-buttons">
-          <button class="like" onclick="castVote('like')">❤️ J’aime</button>
+          <button class="like" onclick="castVote('like')">❤️ J'aime</button>
           <button class="maybe" onclick="castVote('maybe')">🤔 Pourquoi pas</button>
           <button class="no" onclick="castVote('no')">❌ Non</button>
         </div>
 
         <div class="toolbar">
-          <button onclick="previousName()">← Revenir au précédent</button>
-          <button onclick="returnHome()">Quitter</button>
+          <button class="ghost" onclick="previousName()">← Précédent</button>
+          <button class="ghost" onclick="returnHome()">Quitter</button>
         </div>
       </div>
     </div>
@@ -243,23 +402,27 @@
       <p id="resultsIntro"></p>
       <div id="matches"></div>
       <div class="toolbar">
-        <button onclick="returnHome()">Retour</button>
+        <button class="ghost" onclick="returnHome()">Retour</button>
       </div>
     </div>
 
     <div class="card">
-      <h2>À renvoyer dans ChatGPT</h2>
-      <p class="small">Copiez ce résumé dans notre conversation pour que je vous prépare une nouvelle liste beaucoup plus ciblée.</p>
+      <h2>À coller dans Claude ou ChatGPT</h2>
+      <p class="small">Copiez ce résumé et envoyez-le dans votre conversation pour obtenir une nouvelle liste plus proche de vos goûts.</p>
       <div class="summary" id="summary"></div>
       <div class="toolbar">
-        <button class="primary" onclick="copySummary()">Copier le résumé</button>
-        <button onclick="downloadJson()">Exporter les votes</button>
+        <button class="primary" onclick="copySummary()">📋 Copier le résumé</button>
+        <button onclick="downloadJson()">Exporter (JSON)</button>
       </div>
     </div>
   </section>
 </div>
 
+<div id="toast"></div>
+
 <script>
+const STORAGE_KEY = "quentin-annecha-baby-names-v2";
+
 const defaultNames = [
   "Alma","Adèle","Louise","Alba","Romy","Joséphine","Iris","Charlie","Suzanne","Jeanne",
   "Ambre","Billie","Apolline","Olivia","Victoire","Lison","Nine","Léonie","Céleste","Garance",
@@ -267,97 +430,268 @@ const defaultNames = [
   "Raphaël","Noé","Basile","Arthur","Félix","Émile","Paul","Nino","Simon","Anatole"
 ];
 
-let data = {
-  names: [...defaultNames],
-  votes: {
-    quentin: {},
-    anne: {}
-  }
+const PERSON = {
+  quentin: { label: "Quentin", emoji: "👦" },
+  anne: { label: "Anne‑Cha", emoji: "👧" }
 };
 
-let currentVoter = null;
+function otherOf(who) { return who === "quentin" ? "anne" : "quentin"; }
+
+let data = {
+  names: [...defaultNames],
+  identity: null,
+  votes: { quentin: {}, anne: {} }
+};
+
 let currentIndex = 0;
 
-function restore() {
+function load() {
   try {
-    const saved = localStorage.getItem("quentin-annecha-baby-names");
+    const saved = localStorage.getItem(STORAGE_KEY);
     if (saved) data = JSON.parse(saved);
   } catch {}
   if (!Array.isArray(data.names) || !data.names.length) data.names = [...defaultNames];
-  if (!data.votes) data.votes = {quentin:{}, anne:{}};
+  if (!data.votes) data.votes = { quentin: {}, anne: {} };
   if (!data.votes.quentin) data.votes.quentin = {};
   if (!data.votes.anne) data.votes.anne = {};
-  document.getElementById("namesInput").value = data.names.join("\n");
-  refreshStatuses();
+  if (data.identity !== "quentin" && data.identity !== "anne") data.identity = null;
 }
 
 function save() {
-  localStorage.setItem("quentin-annecha-baby-names", JSON.stringify(data));
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
 }
+
+// ---------- URL-safe base64 (unicode aware) ----------
+function b64encode(str) {
+  return btoa(unescape(encodeURIComponent(str)))
+    .replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+}
+function b64decode(str) {
+  str = str.replace(/-/g, "+").replace(/_/g, "/");
+  while (str.length % 4) str += "=";
+  return decodeURIComponent(escape(atob(str)));
+}
+
+function voteChar(v) { return v === "like" ? "L" : v === "maybe" ? "M" : v === "no" ? "N" : "_"; }
+function charVote(c) { return c === "L" ? "like" : c === "M" ? "maybe" : c === "N" ? "no" : null; }
 
 function parseNames(raw) {
-  return [...new Set(
-    raw.split(/[\n,;]+/).map(x => x.trim()).filter(Boolean)
-  )];
+  return [...new Set(raw.split(/[\n,;]+/).map(x => x.trim()).filter(Boolean))];
 }
 
-function saveNames() {
-  const names = parseNames(document.getElementById("namesInput").value);
-  if (!names.length) return alert("Ajoutez au moins un prénom.");
-  data.names = names;
+function mergeNames(local, incoming) {
+  const set = new Set(local);
+  const merged = [...local];
+  for (const n of incoming) {
+    if (!set.has(n)) { merged.push(n); set.add(n); }
+  }
+  return merged;
+}
 
-  for (const who of ["quentin","anne"]) {
+// ---------- Toast ----------
+let toastTimer = null;
+function toast(msg, ms = 3200) {
+  const t = document.getElementById("toast");
+  t.textContent = msg;
+  t.classList.add("show");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove("show"), ms);
+}
+
+// ---------- Sharing / import ----------
+function buildPayload() {
+  return {
+    v: 1,
+    who: data.identity,
+    names: data.names,
+    votes: data.names.map(n => voteChar(data.votes[data.identity][n])).join("")
+  };
+}
+
+async function shareVotes() {
+  if (!data.identity) { toast("Choisissez d'abord votre profil."); return; }
+  saveNames(true);
+  const payload = buildPayload();
+  const code = b64encode(JSON.stringify(payload));
+  const url = `${location.origin}${location.pathname}#s=${code}`;
+  const text = `Voici mes votes prénoms (${PERSON[data.identity].label}). Ouvre ce lien sur ton téléphone pour les recevoir :`;
+
+  if (navigator.share) {
+    try {
+      await navigator.share({ title: "Nos prénoms", text, url });
+      return;
+    } catch {
+      // annulé ou indisponible -> on retombe sur la copie
+    }
+  }
+  try {
+    await navigator.clipboard.writeText(url);
+    toast("Lien copié ! Colle-le dans un message à ton/ta partenaire.");
+  } catch {
+    window.prompt("Copie ce lien et envoie-le à ton/ta partenaire :", url);
+  }
+}
+
+function extractCode(raw) {
+  raw = raw.trim();
+  const idx = raw.indexOf("s=");
+  return idx !== -1 ? raw.slice(idx + 2) : raw;
+}
+
+function importCode(rawCode, opts = {}) {
+  try {
+    const code = extractCode(rawCode);
+    const json = b64decode(code);
+    const payload = JSON.parse(json);
+    if (!payload || (payload.who !== "quentin" && payload.who !== "anne") ||
+        !Array.isArray(payload.names) || typeof payload.votes !== "string") {
+      throw new Error("payload invalide");
+    }
+    data.names = mergeNames(data.names, payload.names);
+    if (!data.votes[payload.who]) data.votes[payload.who] = {};
+    payload.names.forEach((name, i) => {
+      const v = charVote(payload.votes[i]);
+      if (v) data.votes[payload.who][name] = v;
+    });
+    save();
+    toast(`✅ Votes de ${PERSON[payload.who].label} importés (${payload.names.length} prénoms).`);
+    return true;
+  } catch {
+    if (!opts.silent) toast("Lien ou code invalide.");
+    return false;
+  }
+}
+
+function importManual() {
+  const el = document.getElementById("importInput");
+  if (!el.value.trim()) return;
+  if (importCode(el.value)) {
+    el.value = "";
+    document.getElementById("importDetails").open = false;
+  }
+  renderHome();
+}
+
+function tryImportFromHash() {
+  const h = location.hash;
+  if (!h.startsWith("#s=")) return;
+  const code = h.slice(3);
+  importCode(code, { silent: false });
+  history.replaceState(null, "", location.pathname + location.search);
+}
+
+// ---------- Identity ----------
+function choosePerson(who) {
+  data.identity = who;
+  save();
+  renderAll();
+}
+
+function changeIdentity() {
+  if (!confirm("Changer le profil de ce téléphone ? (vos votes déjà enregistrés sont conservés)")) return;
+  data.identity = null;
+  save();
+  renderAll();
+}
+
+// ---------- Home ----------
+function statusText(who) {
+  const total = data.names.length;
+  const count = data.names.filter(n => !!data.votes[who][n]).length;
+  if (count === 0) return "Pas commencé";
+  if (count === total) return "Terminé ✓";
+  return `${count}/${total} prénoms`;
+}
+
+function renderHome() {
+  document.getElementById("namesInput").value = data.names.join("\n");
+  document.getElementById("statusQuentin").textContent = statusText("quentin");
+  document.getElementById("statusAnne").textContent = statusText("anne");
+  document.getElementById("cardQuentin").classList.toggle("you", data.identity === "quentin");
+  document.getElementById("cardAnne").classList.toggle("you", data.identity === "anne");
+
+  const chip = document.getElementById("identityChip");
+  if (data.identity) {
+    chip.classList.remove("hidden");
+    document.getElementById("identityChipName").textContent =
+      `${PERSON[data.identity].emoji} ${PERSON[data.identity].label}`;
+  } else {
+    chip.classList.add("hidden");
+  }
+
+  const voteBtn = document.getElementById("voteBtn");
+  if (data.identity) {
+    const count = data.names.filter(n => !!data.votes[data.identity][n]).length;
+    voteBtn.textContent = count === 0 ? "Commencer à voter" :
+      count === data.names.length ? "Revoir mes votes" : "Continuer à voter";
+    voteBtn.disabled = false;
+  } else {
+    voteBtn.textContent = "Choisissez d'abord votre profil";
+    voteBtn.disabled = true;
+  }
+}
+
+function renderAll() {
+  if (!data.identity) {
+    showSection("picker");
+  } else {
+    showSection("home");
+    renderHome();
+  }
+}
+
+// ---------- Voting ----------
+function saveNames(silent) {
+  const names = parseNames(document.getElementById("namesInput").value);
+  if (!names.length) { if (!silent) toast("Ajoutez au moins un prénom."); return; }
+  data.names = names;
+  for (const who of ["quentin", "anne"]) {
     for (const name of Object.keys(data.votes[who])) {
       if (!names.includes(name)) delete data.votes[who][name];
     }
   }
   save();
-  refreshStatuses();
-  alert("Liste enregistrée.");
+  if (!silent) { renderHome(); toast("Liste enregistrée."); }
 }
 
-function refreshStatuses() {
-  setStatus("quentin", "statusQuentin");
-  setStatus("anne", "statusAnne");
-}
-
-function setStatus(who, id) {
-  const count = data.names.filter(n => !!data.votes[who][n]).length;
-  document.getElementById(id).textContent =
-    count === 0 ? "Pas commencé" :
-    count === data.names.length ? "Terminé ✓" :
-    `${count}/${data.names.length} prénoms`;
-}
-
-function startVoting(who) {
-  saveNames();
-  currentVoter = who;
+function startVoting() {
+  if (!data.identity) return;
+  saveNames(true);
+  const who = data.identity;
   const firstUnvoted = data.names.findIndex(n => !data.votes[who][n]);
   currentIndex = firstUnvoted >= 0 ? firstUnvoted : 0;
   showSection("voting");
   renderCurrent();
 }
 
-function renderCurrent() {
+function renderCurrent(animate) {
   const name = data.names[currentIndex];
-  const person = currentVoter === "quentin" ? "Quentin" : "Anne‑Cha";
+  const person = PERSON[data.identity].label;
+  const el = document.getElementById("currentName");
   document.getElementById("voterLabel").textContent = `Vote de ${person}`;
   document.getElementById("counter").textContent = `${currentIndex + 1} / ${data.names.length}`;
-  document.getElementById("currentName").textContent = name;
   document.getElementById("progressBar").style.width =
     `${((currentIndex + 1) / data.names.length) * 100}%`;
+
+  if (animate) {
+    el.classList.add("swap");
+    setTimeout(() => { el.textContent = name; el.classList.remove("swap"); }, 120);
+  } else {
+    el.textContent = name;
+  }
 }
 
 function castVote(value) {
+  const who = data.identity;
   const name = data.names[currentIndex];
-  data.votes[currentVoter][name] = value;
+  data.votes[who][name] = value;
   save();
 
   if (currentIndex < data.names.length - 1) {
     currentIndex++;
-    renderCurrent();
+    renderCurrent(true);
   } else {
-    alert("Sélection terminée.");
+    toast("Sélection terminée ✓");
     returnHome();
   }
 }
@@ -365,25 +699,33 @@ function castVote(value) {
 function previousName() {
   if (currentIndex > 0) {
     currentIndex--;
-    renderCurrent();
+    renderCurrent(true);
   }
 }
 
 function returnHome() {
-  refreshStatuses();
   showSection("home");
+  renderHome();
 }
 
+// ---------- Results ----------
 function showResults() {
-  saveNames();
+  saveNames(true);
 
-  const bothCompleted = ["quentin","anne"].every(who =>
-    data.names.every(n => !!data.votes[who][n])
+  const hasQ = data.names.some(n => !!data.votes.quentin[n]);
+  const hasA = data.names.some(n => !!data.votes.anne[n]);
+  const bothCompleted = ["quentin", "anne"].every(who =>
+    data.names.length > 0 && data.names.every(n => !!data.votes[who][n])
   );
 
-  document.getElementById("resultsIntro").textContent = bothCompleted
-    ? "Vous avez tous les deux terminé. Voici vos meilleures compatibilités."
-    : "Certains votes ne sont pas encore terminés. Les résultats ci-dessous utilisent uniquement les choix déjà enregistrés.";
+  const introEl = document.getElementById("resultsIntro");
+  if (!hasQ || !hasA) {
+    introEl.textContent = "Il manque encore les votes d'un des deux téléphones. Utilisez « Envoyer mes votes » puis ouvrez le lien reçu sur cet appareil.";
+  } else if (bothCompleted) {
+    introEl.textContent = "Vous avez tous les deux terminé. Voici vos meilleures compatibilités.";
+  } else {
+    introEl.textContent = "Certains votes ne sont pas encore terminés. Les résultats ci-dessous utilisent uniquement les choix déjà enregistrés des deux côtés.";
+  }
 
   const matches = [];
   for (const name of data.names) {
@@ -404,10 +746,10 @@ function showResults() {
     } else {
       score = -1; label = "❌ Non commun";
     }
-    matches.push({name, score, label, q, a});
+    matches.push({ name, score, label, q, a });
   }
 
-  matches.sort((x,y) => y.score - x.score || x.name.localeCompare(y.name, "fr"));
+  matches.sort((x, y) => y.score - x.score || x.name.localeCompare(y.name, "fr"));
 
   const container = document.getElementById("matches");
   container.innerHTML = "";
@@ -476,7 +818,7 @@ function list(arr) {
 function copySummary() {
   const text = document.getElementById("summary").textContent;
   navigator.clipboard.writeText(text)
-    .then(() => alert("Résumé copié."))
+    .then(() => toast("Résumé copié."))
     .catch(() => {
       const ta = document.createElement("textarea");
       ta.value = text;
@@ -484,12 +826,12 @@ function copySummary() {
       ta.select();
       document.execCommand("copy");
       ta.remove();
-      alert("Résumé copié.");
+      toast("Résumé copié.");
     });
 }
 
 function downloadJson() {
-  const blob = new Blob([JSON.stringify(data, null, 2)], {type:"application/json"});
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
@@ -499,29 +841,33 @@ function downloadJson() {
 }
 
 function resetVotes() {
-  if (!confirm("Effacer tous les votes de Quentin et Anne‑Cha ?")) return;
-  data.votes = {quentin:{}, anne:{}};
+  if (!data.identity) return;
+  if (!confirm(`Effacer les votes de ${PERSON[data.identity].label} sur ce téléphone ?`)) return;
+  data.votes[data.identity] = {};
   save();
-  refreshStatuses();
+  renderHome();
+  toast("Vos votes ont été effacés.");
 }
 
 function showSection(id) {
-  ["home","voting","results"].forEach(x =>
+  ["picker", "home", "voting", "results"].forEach(x =>
     document.getElementById(x).classList.toggle("hidden", x !== id)
   );
-  window.scrollTo({top: 0, behavior: "smooth"});
+  window.scrollTo({ top: 0, behavior: "smooth" });
 }
 
 function escapeHtml(str) {
   return String(str)
-    .replaceAll("&","&amp;")
-    .replaceAll("<","&lt;")
-    .replaceAll(">","&gt;")
-    .replaceAll('"',"&quot;")
-    .replaceAll("'","&#039;");
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
 }
 
-restore();
+load();
+tryImportFromHash();
+renderAll();
 </script>
 </body>
 </html>
