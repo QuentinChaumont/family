@@ -1,0 +1,527 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <meta name="apple-mobile-web-app-title" content="Nos prénoms" />
+  <title>Nos prénoms — Quentin & Anne‑Cha</title>
+  <style>
+    :root {
+      --bg: #f7f2ec;
+      --card: #fffdf9;
+      --text: #26231f;
+      --muted: #766f67;
+      --border: #e4dbd1;
+      --accent: #332f2a;
+      --like: #dff1e3;
+      --maybe: #fff0c2;
+      --no: #f4d8d6;
+    }
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    html { background: var(--bg); }
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+    }
+    .container {
+      max-width: 760px;
+      margin: 0 auto;
+      padding: max(20px, env(safe-area-inset-top)) 16px max(50px, env(safe-area-inset-bottom));
+    }
+    h1 { font-size: 2rem; margin: 6px 0 4px; }
+    h2 { margin-top: 0; font-size: 1.25rem; }
+    p { color: var(--muted); line-height: 1.45; }
+    .subtitle { margin-top: 0; }
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 18px;
+      margin-top: 16px;
+      box-shadow: 0 5px 22px rgba(0,0,0,.04);
+    }
+    textarea {
+      width: 100%;
+      min-height: 170px;
+      padding: 12px;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      font: inherit;
+      resize: vertical;
+      background: white;
+    }
+    button {
+      appearance: none;
+      border: 1px solid var(--border);
+      background: white;
+      color: var(--text);
+      padding: 12px 14px;
+      border-radius: 13px;
+      cursor: pointer;
+      font: inherit;
+      font-weight: 650;
+      min-height: 46px;
+    }
+    button.primary {
+      background: var(--accent);
+      color: white;
+      border-color: var(--accent);
+    }
+    button.big {
+      width: 100%;
+      min-height: 58px;
+      font-size: 1.05rem;
+    }
+    .toolbar {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-top: 14px;
+    }
+    .toolbar > button { flex: 1; }
+    .hidden { display: none !important; }
+    .people {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin-top: 16px;
+    }
+    .person-card {
+      padding: 18px;
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      background: white;
+      text-align: center;
+    }
+    .person-name { font-weight: 800; font-size: 1.15rem; margin-bottom: 4px; }
+    .person-status { color: var(--muted); font-size: .9rem; margin-bottom: 12px; }
+    .name-box {
+      text-align: center;
+      padding: 22px 10px 12px;
+    }
+    .counter {
+      color: var(--muted);
+      font-size: .9rem;
+      margin-bottom: 8px;
+    }
+    .current-name {
+      font-size: clamp(2.2rem, 10vw, 4rem);
+      font-weight: 800;
+      letter-spacing: -.03em;
+      margin: 8px 0 22px;
+      min-height: 1.2em;
+    }
+    .vote-buttons {
+      display: grid;
+      gap: 10px;
+    }
+    .vote-buttons button { font-size: 1.05rem; min-height: 56px; }
+    .like { background: var(--like); }
+    .maybe { background: var(--maybe); }
+    .no { background: var(--no); }
+    .progress {
+      height: 7px;
+      background: #eee7de;
+      border-radius: 99px;
+      overflow: hidden;
+      margin: 14px 0 2px;
+    }
+    .progress > div {
+      height: 100%;
+      background: var(--accent);
+      transition: width .2s ease;
+    }
+    .match {
+      padding: 13px 14px;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      margin-top: 9px;
+      background: white;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+    .match strong { font-size: 1.07rem; }
+    .badge {
+      font-size: .8rem;
+      padding: 5px 8px;
+      border-radius: 999px;
+      white-space: nowrap;
+    }
+    .badge.top { background: var(--like); }
+    .badge.maybe { background: var(--maybe); }
+    .summary {
+      white-space: pre-wrap;
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: .88rem;
+      line-height: 1.45;
+      background: #f7f4ef;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 13px;
+      max-height: 320px;
+      overflow: auto;
+    }
+    .small { font-size: .85rem; color: var(--muted); }
+    .danger { color: #9a3131; }
+    @media (max-width: 540px) {
+      .people { grid-template-columns: 1fr; }
+      .toolbar { flex-direction: column; }
+    }
+  </style>
+</head>
+<body>
+<div class="container">
+  <h1>Nos prénoms</h1>
+  <p class="subtitle">Quentin & Anne‑Cha</p>
+
+  <section id="home">
+    <div class="card">
+      <h2>Chacun vote en secret</h2>
+      <p>Quentin et Anne‑Cha font leur sélection séparément. Les choix de l'autre restent cachés jusqu'à ce que vous révéliez les résultats.</p>
+
+      <div class="people">
+        <div class="person-card">
+          <div class="person-name">Quentin</div>
+          <div class="person-status" id="statusQuentin">Pas commencé</div>
+          <button class="big" onclick="startVoting('quentin')">Voter</button>
+        </div>
+        <div class="person-card">
+          <div class="person-name">Anne‑Cha</div>
+          <div class="person-status" id="statusAnne">Pas commencé</div>
+          <button class="big" onclick="startVoting('anne')">Voter</button>
+        </div>
+      </div>
+
+      <div class="toolbar">
+        <button class="primary" onclick="showResults()">Révéler nos matchs</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Liste de prénoms</h2>
+      <p class="small">Un prénom par ligne, ou séparés par des virgules. Vous pouvez remplacer complètement ma sélection.</p>
+      <textarea id="namesInput"></textarea>
+      <div class="toolbar">
+        <button onclick="saveNames()">Enregistrer la liste</button>
+        <button onclick="resetVotes()">Effacer les votes</button>
+      </div>
+    </div>
+  </section>
+
+  <section id="voting" class="hidden">
+    <div class="card">
+      <div class="name-box">
+        <div class="counter" id="voterLabel"></div>
+        <div class="progress"><div id="progressBar"></div></div>
+        <div class="counter" id="counter"></div>
+        <div class="current-name" id="currentName"></div>
+
+        <div class="vote-buttons">
+          <button class="like" onclick="castVote('like')">❤️ J’aime</button>
+          <button class="maybe" onclick="castVote('maybe')">🤔 Pourquoi pas</button>
+          <button class="no" onclick="castVote('no')">❌ Non</button>
+        </div>
+
+        <div class="toolbar">
+          <button onclick="previousName()">← Revenir au précédent</button>
+          <button onclick="returnHome()">Quitter</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="results" class="hidden">
+    <div class="card">
+      <h2>Vos matchs</h2>
+      <p id="resultsIntro"></p>
+      <div id="matches"></div>
+      <div class="toolbar">
+        <button onclick="returnHome()">Retour</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>À renvoyer dans ChatGPT</h2>
+      <p class="small">Copiez ce résumé dans notre conversation pour que je vous prépare une nouvelle liste beaucoup plus ciblée.</p>
+      <div class="summary" id="summary"></div>
+      <div class="toolbar">
+        <button class="primary" onclick="copySummary()">Copier le résumé</button>
+        <button onclick="downloadJson()">Exporter les votes</button>
+      </div>
+    </div>
+  </section>
+</div>
+
+<script>
+const defaultNames = [
+  "Alma","Adèle","Louise","Alba","Romy","Joséphine","Iris","Charlie","Suzanne","Jeanne",
+  "Ambre","Billie","Apolline","Olivia","Victoire","Lison","Nine","Léonie","Céleste","Garance",
+  "Gabriel","Léon","Jules","Malo","Oscar","Auguste","Marceau","Sacha","Gaspard","Marius",
+  "Raphaël","Noé","Basile","Arthur","Félix","Émile","Paul","Nino","Simon","Anatole"
+];
+
+let data = {
+  names: [...defaultNames],
+  votes: {
+    quentin: {},
+    anne: {}
+  }
+};
+
+let currentVoter = null;
+let currentIndex = 0;
+
+function restore() {
+  try {
+    const saved = localStorage.getItem("quentin-annecha-baby-names");
+    if (saved) data = JSON.parse(saved);
+  } catch {}
+  if (!Array.isArray(data.names) || !data.names.length) data.names = [...defaultNames];
+  if (!data.votes) data.votes = {quentin:{}, anne:{}};
+  if (!data.votes.quentin) data.votes.quentin = {};
+  if (!data.votes.anne) data.votes.anne = {};
+  document.getElementById("namesInput").value = data.names.join("\n");
+  refreshStatuses();
+}
+
+function save() {
+  localStorage.setItem("quentin-annecha-baby-names", JSON.stringify(data));
+}
+
+function parseNames(raw) {
+  return [...new Set(
+    raw.split(/[\n,;]+/).map(x => x.trim()).filter(Boolean)
+  )];
+}
+
+function saveNames() {
+  const names = parseNames(document.getElementById("namesInput").value);
+  if (!names.length) return alert("Ajoutez au moins un prénom.");
+  data.names = names;
+
+  for (const who of ["quentin","anne"]) {
+    for (const name of Object.keys(data.votes[who])) {
+      if (!names.includes(name)) delete data.votes[who][name];
+    }
+  }
+  save();
+  refreshStatuses();
+  alert("Liste enregistrée.");
+}
+
+function refreshStatuses() {
+  setStatus("quentin", "statusQuentin");
+  setStatus("anne", "statusAnne");
+}
+
+function setStatus(who, id) {
+  const count = data.names.filter(n => !!data.votes[who][n]).length;
+  document.getElementById(id).textContent =
+    count === 0 ? "Pas commencé" :
+    count === data.names.length ? "Terminé ✓" :
+    `${count}/${data.names.length} prénoms`;
+}
+
+function startVoting(who) {
+  saveNames();
+  currentVoter = who;
+  const firstUnvoted = data.names.findIndex(n => !data.votes[who][n]);
+  currentIndex = firstUnvoted >= 0 ? firstUnvoted : 0;
+  showSection("voting");
+  renderCurrent();
+}
+
+function renderCurrent() {
+  const name = data.names[currentIndex];
+  const person = currentVoter === "quentin" ? "Quentin" : "Anne‑Cha";
+  document.getElementById("voterLabel").textContent = `Vote de ${person}`;
+  document.getElementById("counter").textContent = `${currentIndex + 1} / ${data.names.length}`;
+  document.getElementById("currentName").textContent = name;
+  document.getElementById("progressBar").style.width =
+    `${((currentIndex + 1) / data.names.length) * 100}%`;
+}
+
+function castVote(value) {
+  const name = data.names[currentIndex];
+  data.votes[currentVoter][name] = value;
+  save();
+
+  if (currentIndex < data.names.length - 1) {
+    currentIndex++;
+    renderCurrent();
+  } else {
+    alert("Sélection terminée.");
+    returnHome();
+  }
+}
+
+function previousName() {
+  if (currentIndex > 0) {
+    currentIndex--;
+    renderCurrent();
+  }
+}
+
+function returnHome() {
+  refreshStatuses();
+  showSection("home");
+}
+
+function showResults() {
+  saveNames();
+
+  const bothCompleted = ["quentin","anne"].every(who =>
+    data.names.every(n => !!data.votes[who][n])
+  );
+
+  document.getElementById("resultsIntro").textContent = bothCompleted
+    ? "Vous avez tous les deux terminé. Voici vos meilleures compatibilités."
+    : "Certains votes ne sont pas encore terminés. Les résultats ci-dessous utilisent uniquement les choix déjà enregistrés.";
+
+  const matches = [];
+  for (const name of data.names) {
+    const q = data.votes.quentin[name];
+    const a = data.votes.anne[name];
+    if (!q || !a) continue;
+
+    let score = 0, label = "";
+    if (q === "like" && a === "like") { score = 4; label = "❤️ Coup de cœur commun"; }
+    else if ((q === "like" && a === "maybe") || (q === "maybe" && a === "like")) {
+      score = 3; label = "❤️🤔 Très bon potentiel";
+    }
+    else if (q === "maybe" && a === "maybe") { score = 2; label = "🤔 À garder"; }
+    else if ((q === "like" && a === "no") || (q === "no" && a === "like")) {
+      score = 1; label = "⚖️ Désaccord";
+    } else if ((q === "maybe" && a === "no") || (q === "no" && a === "maybe")) {
+      score = 0; label = "Plutôt non";
+    } else {
+      score = -1; label = "❌ Non commun";
+    }
+    matches.push({name, score, label, q, a});
+  }
+
+  matches.sort((x,y) => y.score - x.score || x.name.localeCompare(y.name, "fr"));
+
+  const container = document.getElementById("matches");
+  container.innerHTML = "";
+  const interesting = matches.filter(m => m.score >= 2);
+
+  if (!interesting.length) {
+    container.innerHTML = `<p>Aucun prénom n'est encore ressorti comme vrai match commun.</p>`;
+  } else {
+    interesting.forEach(m => {
+      const div = document.createElement("div");
+      div.className = "match";
+      div.innerHTML = `<strong>${escapeHtml(m.name)}</strong>
+        <span class="badge ${m.score >= 3 ? "top" : "maybe"}">${m.label}</span>`;
+      container.appendChild(div);
+    });
+  }
+
+  document.getElementById("summary").textContent = buildSummary(matches);
+  showSection("results");
+}
+
+function buildSummary(matches) {
+  const group = (predicate) => matches.filter(predicate).map(m => m.name);
+  const detailed = matches.filter(m => m.score === 1).map(m =>
+    `${m.name} (Quentin ${icon(m.q)} / Anne‑Cha ${icon(m.a)})`
+  );
+
+  const qLikes = data.names.filter(n => data.votes.quentin[n] === "like");
+  const aLikes = data.names.filter(n => data.votes.anne[n] === "like");
+
+  return [
+    "Voici les résultats de notre application de prénoms.",
+    "",
+    "Couple : Quentin + Anne-Cha",
+    "",
+    "❤️ COUPS DE CŒUR COMMUNS",
+    list(group(m => m.score === 4)),
+    "",
+    "❤️🤔 TRÈS BON POTENTIEL",
+    list(group(m => m.score === 3)),
+    "",
+    "🤔 À GARDER TOUS LES DEUX",
+    list(group(m => m.score === 2)),
+    "",
+    "⚖️ DÉSACCORDS FORTS",
+    list(detailed),
+    "",
+    "❤️ PRÉNOMS AIMÉS PAR QUENTIN",
+    list(qLikes),
+    "",
+    "❤️ PRÉNOMS AIMÉS PAR ANNE-CHA",
+    list(aLikes),
+    "",
+    "Analyse nos goûts respectifs et communs. Déduis le style de prénoms qui nous attire, puis propose une nouvelle sélection de prénoms différents de ceux déjà testés, avec environ 15 filles et 15 garçons."
+  ].join("\n");
+}
+
+function icon(v) {
+  return v === "like" ? "❤️" : v === "maybe" ? "🤔" : v === "no" ? "❌" : "—";
+}
+
+function list(arr) {
+  return arr.length ? arr.join(", ") : "Aucun";
+}
+
+function copySummary() {
+  const text = document.getElementById("summary").textContent;
+  navigator.clipboard.writeText(text)
+    .then(() => alert("Résumé copié."))
+    .catch(() => {
+      const ta = document.createElement("textarea");
+      ta.value = text;
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand("copy");
+      ta.remove();
+      alert("Résumé copié.");
+    });
+}
+
+function downloadJson() {
+  const blob = new Blob([JSON.stringify(data, null, 2)], {type:"application/json"});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "prenoms-quentin-anne-cha.json";
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function resetVotes() {
+  if (!confirm("Effacer tous les votes de Quentin et Anne‑Cha ?")) return;
+  data.votes = {quentin:{}, anne:{}};
+  save();
+  refreshStatuses();
+}
+
+function showSection(id) {
+  ["home","voting","results"].forEach(x =>
+    document.getElementById(x).classList.toggle("hidden", x !== id)
+  );
+  window.scrollTo({top: 0, behavior: "smooth"});
+}
+
+function escapeHtml(str) {
+  return String(str)
+    .replaceAll("&","&amp;")
+    .replaceAll("<","&lt;")
+    .replaceAll(">","&gt;")
+    .replaceAll('"',"&quot;")
+    .replaceAll("'","&#039;");
+}
+
+restore();
+</script>
+</body>
+</html>
