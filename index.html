@@ -127,16 +127,34 @@
       from { opacity: 0; transform: translateY(8px); }
       to { opacity: 1; transform: translateY(0); }
     }
-    textarea {
+    textarea, input[type="search"] {
       width: 100%;
-      min-height: 150px;
       padding: 12px;
       border-radius: 12px;
       border: 1px solid var(--border);
       font: inherit;
-      resize: vertical;
       background: var(--card-solid);
       color: var(--text);
+    }
+    textarea { min-height: 150px; resize: vertical; }
+    input[type="search"] { min-height: 46px; margin-top: 12px; }
+    .filter-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin: 12px 0 4px;
+    }
+    .filter-row button {
+      flex: none;
+      min-height: 36px;
+      padding: 8px 13px;
+      font-size: .83rem;
+      border-radius: 999px;
+    }
+    .filter-row button.active {
+      background: linear-gradient(135deg, var(--accent), var(--accent-dark));
+      color: var(--accent-contrast);
+      border-color: transparent;
     }
     button {
       appearance: none;
@@ -258,6 +276,7 @@
     }
     .badge.top { background: var(--like); color: var(--like-text); }
     .badge.maybe { background: var(--maybe); color: var(--maybe-text); }
+    .badge.no { background: var(--no); color: var(--no-text); }
     .badge.blocked { background: var(--blocked); color: var(--blocked-text); }
     .vote-detail {
       display: grid;
@@ -414,6 +433,7 @@
       <div id="matches"></div>
       <div class="toolbar">
         <button class="ghost" onclick="returnHome()">Retour</button>
+        <button onclick="openExplore()">🔍 Explorer tous les prénoms</button>
       </div>
     </div>
 
@@ -435,6 +455,19 @@
       <p class="small">Une fois la réponse de l'IA reçue :</p>
       <div class="toolbar">
         <button class="primary" onclick="goToNewRound()">🔄 Nouvelle sélection</button>
+      </div>
+    </div>
+  </section>
+
+  <section id="explore" class="hidden">
+    <div class="card">
+      <h2>Tous les prénoms notés</h2>
+      <p class="small" id="exploreCount"></p>
+      <input type="search" id="exploreSearch" placeholder="Rechercher un prénom…" oninput="onExploreSearch(this.value)" />
+      <div class="filter-row" id="exploreFilters"></div>
+      <div id="exploreList"></div>
+      <div class="toolbar">
+        <button class="ghost" onclick="showSection('results'); computeAndRenderResults();">Retour aux résultats</button>
       </div>
     </div>
   </section>
@@ -639,6 +672,7 @@ function renderAll() {
 function refreshCurrentView() {
   if (currentSection === "home") renderHome();
   else if (currentSection === "results") computeAndRenderResults();
+  else if (currentSection === "explore") renderExplore();
   else if (currentSection === "voting") {
     if (currentIndex >= data.names.length) currentIndex = Math.max(0, data.names.length - 1);
     renderCurrent();
@@ -739,22 +773,7 @@ function showResults() {
   computeAndRenderResults();
 }
 
-function computeAndRenderResults() {
-  const hasQ = data.names.some(n => !!data.votes.quentin[n]);
-  const hasA = data.names.some(n => !!data.votes.anne[n]);
-  const bothCompleted = ["quentin", "anne"].every(who =>
-    data.names.length > 0 && data.names.every(n => !!data.votes[who][n])
-  );
-
-  const introEl = document.getElementById("resultsIntro");
-  if (!hasQ || !hasA) {
-    introEl.textContent = "Il manque encore les votes de l'autre personne. Ils apparaîtront automatiquement ici dès que son téléphone aura synchronisé.";
-  } else if (bothCompleted) {
-    introEl.textContent = "Vous avez tous les deux terminé. Voici vos meilleures compatibilités.";
-  } else {
-    introEl.textContent = "Certains votes ne sont pas encore terminés. Les résultats ci-dessous utilisent uniquement les choix déjà enregistrés des deux côtés.";
-  }
-
+function computeMatches() {
   const matches = [];
   const blocked = [];
   for (const name of data.names) {
@@ -763,7 +782,7 @@ function computeAndRenderResults() {
     if (!q || !a) continue;
 
     if (q === "blocked" || a === "blocked") {
-      blocked.push({ name, q, a });
+      blocked.push({ name, q, a, category: "blocked", label: "🚫 Impossible (proche)" });
       continue;
     }
 
@@ -780,11 +799,31 @@ function computeAndRenderResults() {
     } else {
       score = -1; label = "❌ Non commun";
     }
-    matches.push({ name, score, label, q, a });
+    matches.push({ name, score, label, q, a, category: `score${score}` });
   }
 
   matches.sort((x, y) => y.score - x.score || x.name.localeCompare(y.name, "fr"));
   blocked.sort((x, y) => x.name.localeCompare(y.name, "fr"));
+  return { matches, blocked };
+}
+
+function computeAndRenderResults() {
+  const hasQ = data.names.some(n => !!data.votes.quentin[n]);
+  const hasA = data.names.some(n => !!data.votes.anne[n]);
+  const bothCompleted = ["quentin", "anne"].every(who =>
+    data.names.length > 0 && data.names.every(n => !!data.votes[who][n])
+  );
+
+  const introEl = document.getElementById("resultsIntro");
+  if (!hasQ || !hasA) {
+    introEl.textContent = "Il manque encore les votes de l'autre personne. Ils apparaîtront automatiquement ici dès que son téléphone aura synchronisé.";
+  } else if (bothCompleted) {
+    introEl.textContent = "Vous avez tous les deux terminé. Voici vos meilleures compatibilités.";
+  } else {
+    introEl.textContent = "Certains votes ne sont pas encore terminés. Les résultats ci-dessous utilisent uniquement les choix déjà enregistrés des deux côtés.";
+  }
+
+  const { matches, blocked } = computeMatches();
 
   const container = document.getElementById("matches");
   container.innerHTML = "";
@@ -804,13 +843,89 @@ function computeAndRenderResults() {
       const div = document.createElement("div");
       div.className = "match";
       div.innerHTML = `<strong>${escapeHtml(m.name)}</strong>
-        <span class="badge blocked">🚫 Impossible (proche)</span>`;
+        <span class="badge blocked">${m.label}</span>`;
       container.appendChild(div);
     });
   }
 
   renderVoteBreakdown();
   document.getElementById("summary").textContent = buildSummary(matches, blocked);
+}
+
+// ---------- Explorer (recherche + filtres sur tout ce qui est noté par les deux) ----------
+const CATEGORIES = [
+  { key: "all", label: "Tous" },
+  { key: "score4", label: "❤️ Coup de cœur" },
+  { key: "score3", label: "❤️🤔 Très bon potentiel" },
+  { key: "score2", label: "🤔 À garder" },
+  { key: "score1", label: "⚖️ Désaccord" },
+  { key: "score0", label: "😐 Plutôt non" },
+  { key: "score-1", label: "❌ Non commun" },
+  { key: "blocked", label: "🚫 Impossible" }
+];
+
+let exploreFilter = "all";
+let exploreQuery = "";
+
+function normalize(str) {
+  return str.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+}
+
+function openExplore() {
+  showSection("explore");
+  document.getElementById("exploreSearch").value = exploreQuery;
+  renderExplore();
+}
+
+function setExploreFilter(key) {
+  exploreFilter = key;
+  renderExplore();
+}
+
+function onExploreSearch(value) {
+  exploreQuery = value;
+  renderExplore();
+}
+
+function badgeClass(m) {
+  if (m.category === "blocked") return "blocked";
+  if (m.score >= 3) return "top";
+  if (m.score === 2) return "maybe";
+  return "no";
+}
+
+function renderExplore() {
+  const filtersEl = document.getElementById("exploreFilters");
+  filtersEl.innerHTML = CATEGORIES.map(c =>
+    `<button class="${exploreFilter === c.key ? "active" : ""}" onclick="setExploreFilter('${c.key}')">${c.label}</button>`
+  ).join("");
+
+  const { matches, blocked } = computeMatches();
+  const all = [...matches, ...blocked];
+  const q = normalize(exploreQuery.trim());
+  const filtered = all.filter(m =>
+    (exploreFilter === "all" || m.category === exploreFilter) &&
+    (!q || normalize(m.name).includes(q))
+  );
+
+  document.getElementById("exploreCount").textContent =
+    all.length === 0
+      ? "Aucun prénom encore noté des deux côtés."
+      : `${filtered.length} / ${all.length} prénom${all.length > 1 ? "s" : ""} noté${all.length > 1 ? "s" : ""} par les deux`;
+
+  const container = document.getElementById("exploreList");
+  container.innerHTML = "";
+  if (!filtered.length) {
+    container.innerHTML = `<p>Aucun prénom ne correspond à ce filtre.</p>`;
+    return;
+  }
+  filtered.forEach(m => {
+    const div = document.createElement("div");
+    div.className = "match";
+    div.innerHTML = `<strong>${escapeHtml(m.name)}</strong>
+      <span class="badge ${badgeClass(m)}">${m.label}</span>`;
+    container.appendChild(div);
+  });
 }
 
 function renderVoteBreakdown() {
@@ -920,7 +1035,7 @@ function resetVotes() {
 
 function showSection(id) {
   currentSection = id;
-  ["picker", "home", "voting", "results"].forEach(x =>
+  ["picker", "home", "voting", "results", "explore"].forEach(x =>
     document.getElementById(x).classList.toggle("hidden", x !== id)
   );
   window.scrollTo({ top: 0, behavior: "smooth" });
