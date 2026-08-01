@@ -14,12 +14,7 @@
 window.FIREBASE_CONFIG = {
   apiKey: "AIzaSyA6KYJ4SV1kjMW6fS0TCljhyWULCJmhj3s",
   authDomain: "family-717da.firebaseapp.com",
-  // ⚠️ À compléter : allez dans la console Firebase → "Realtime Database" →
-  // "Créer une base de données". Une fois créée, Firebase affiche son URL
-  // (ex. "https://family-717da-default-rtdb.europe-west1.firebasedatabase.app")
-  // — collez-la ici à la place de REMPLACE_MOI. Sans ça, la synchro ne peut
-  // pas démarrer (le SDK a besoin de savoir où se trouve la base).
-  databaseURL: "https://REMPLACE_MOI-default-rtdb.firebaseio.com",
+  databaseURL: "https://family-717da-default-rtdb.europe-west1.firebasedatabase.app",
   projectId: "family-717da",
   storageBucket: "family-717da.firebasestorage.app",
   messagingSenderId: "162522176917",
