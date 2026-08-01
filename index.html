@@ -27,6 +27,8 @@
       --maybe-text: #7a5c0e;
       --no: #f6dbd7;
       --no-text: #93392f;
+      --blocked: #e6dcf5;
+      --blocked-text: #5c4a8a;
       --shadow: 0 10px 30px rgba(80, 55, 30, .08);
       --radius: 20px;
     }
@@ -48,6 +50,8 @@
         --maybe-text: #f0cf74;
         --no: #3a2321;
         --no-text: #f0938a;
+        --blocked: #362e47;
+        --blocked-text: #c6b3f0;
         --shadow: 0 10px 30px rgba(0,0,0,.35);
       }
     }
@@ -220,6 +224,7 @@
     .like { background: var(--like); color: var(--like-text); }
     .maybe { background: var(--maybe); color: var(--maybe-text); }
     .no { background: var(--no); color: var(--no-text); }
+    .blocked { background: var(--blocked); color: var(--blocked-text); }
     .progress {
       height: 8px;
       background: color-mix(in srgb, var(--border) 70%, transparent);
@@ -253,6 +258,16 @@
     }
     .badge.top { background: var(--like); color: var(--like-text); }
     .badge.maybe { background: var(--maybe); color: var(--maybe-text); }
+    .badge.blocked { background: var(--blocked); color: var(--blocked-text); }
+    .vote-detail {
+      display: grid;
+      gap: 6px;
+      margin-top: 6px;
+    }
+    .vote-detail .row { font-size: .88rem; }
+    .vote-detail .row strong { color: var(--text); }
+    .breakdown-person { margin-top: 16px; }
+    .breakdown-person:first-child { margin-top: 0; }
     .summary {
       white-space: pre-wrap;
       font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
@@ -347,10 +362,10 @@
     </div>
 
     <div class="card">
-      <details>
-        <summary>Modifier la liste de prénoms</summary>
+      <details id="namesDetails">
+        <summary>Modifier ou remplacer la liste de prénoms</summary>
         <div class="inner">
-          <p class="small">Un prénom par ligne, ou séparés par des virgules.</p>
+          <p class="small">Un prénom par ligne, ou séparés par des virgules. Vous recevez une nouvelle liste de l'IA ? Collez-la ici : elle remplace l'ancienne et efface les votes des prénoms qui ont disparu.</p>
           <textarea id="namesInput"></textarea>
           <div class="toolbar">
             <button onclick="saveNames()">Enregistrer la liste</button>
@@ -379,6 +394,7 @@
 
         <div class="vote-buttons">
           <button class="like" onclick="castVote('like')">❤️ J'aime</button>
+          <button class="blocked" onclick="castVote('blocked')">🚫 J'aime, mais un proche a ce prénom</button>
           <button class="maybe" onclick="castVote('maybe')">🤔 Pourquoi pas</button>
           <button class="no" onclick="castVote('no')">❌ Non</button>
         </div>
@@ -402,12 +418,23 @@
     </div>
 
     <div class="card">
+      <details>
+        <summary>Voir le détail des votes (les deux côtés)</summary>
+        <div class="inner" id="voteBreakdown"></div>
+      </details>
+    </div>
+
+    <div class="card">
       <h2>À coller dans Claude ou ChatGPT</h2>
       <p class="small">Copiez ce résumé et envoyez-le dans votre conversation pour obtenir une nouvelle liste plus proche de vos goûts.</p>
       <div class="summary" id="summary"></div>
       <div class="toolbar">
         <button class="primary" onclick="copySummary()">📋 Copier le résumé</button>
         <button onclick="downloadJson()">Exporter (JSON)</button>
+      </div>
+      <p class="small">Une fois la réponse de l'IA reçue :</p>
+      <div class="toolbar">
+        <button class="primary" onclick="goToNewRound()">🔄 Nouvelle sélection</button>
       </div>
     </div>
   </section>
@@ -629,7 +656,13 @@ function saveNames(silent) {
     }
   }
   saveLocal();
-  if (firebaseEnabled) remoteRef("names").set(names);
+  if (firebaseEnabled) {
+    remoteRef("names").set(names);
+    // .set() (pas .update()) pour bien remplacer entièrement les votes distants
+    // et faire disparaître ceux des prénoms retirés de la liste.
+    remoteRef("votes/quentin").set(data.votes.quentin);
+    remoteRef("votes/anne").set(data.votes.anne);
+  }
   if (!silent) { renderHome(); toast("Liste enregistrée."); }
 }
 
@@ -688,6 +721,17 @@ function returnHome() {
   renderHome();
 }
 
+function goToNewRound() {
+  showSection("home");
+  renderHome();
+  const details = document.getElementById("namesDetails");
+  details.open = true;
+  const el = document.getElementById("namesInput");
+  el.focus();
+  el.select();
+  details.scrollIntoView({ behavior: "smooth", block: "center" });
+}
+
 // ---------- Results ----------
 function showResults() {
   saveNames(true);
@@ -712,10 +756,16 @@ function computeAndRenderResults() {
   }
 
   const matches = [];
+  const blocked = [];
   for (const name of data.names) {
     const q = data.votes.quentin[name];
     const a = data.votes.anne[name];
     if (!q || !a) continue;
+
+    if (q === "blocked" || a === "blocked") {
+      blocked.push({ name, q, a });
+      continue;
+    }
 
     let score = 0, label = "";
     if (q === "like" && a === "like") { score = 4; label = "❤️ Coup de cœur commun"; }
@@ -734,12 +784,13 @@ function computeAndRenderResults() {
   }
 
   matches.sort((x, y) => y.score - x.score || x.name.localeCompare(y.name, "fr"));
+  blocked.sort((x, y) => x.name.localeCompare(y.name, "fr"));
 
   const container = document.getElementById("matches");
   container.innerHTML = "";
   const interesting = matches.filter(m => m.score >= 2);
 
-  if (!interesting.length) {
+  if (!interesting.length && !blocked.length) {
     container.innerHTML = `<p>Aucun prénom n'est encore ressorti comme vrai match commun.</p>`;
   } else {
     interesting.forEach(m => {
@@ -749,14 +800,37 @@ function computeAndRenderResults() {
         <span class="badge ${m.score >= 3 ? "top" : "maybe"}">${m.label}</span>`;
       container.appendChild(div);
     });
+    blocked.forEach(m => {
+      const div = document.createElement("div");
+      div.className = "match";
+      div.innerHTML = `<strong>${escapeHtml(m.name)}</strong>
+        <span class="badge blocked">🚫 Impossible (proche)</span>`;
+      container.appendChild(div);
+    });
   }
 
-  document.getElementById("summary").textContent = buildSummary(matches);
+  renderVoteBreakdown();
+  document.getElementById("summary").textContent = buildSummary(matches, blocked);
 }
 
-function buildSummary(matches) {
+function renderVoteBreakdown() {
+  const container = document.getElementById("voteBreakdown");
+  container.innerHTML = ["quentin", "anne"].map(who => {
+    const groups = VOTE_ORDER.map(v => {
+      const names = data.names.filter(n => data.votes[who][n] === v);
+      return `<div class="row"><strong>${VOTE_LABEL[v]} :</strong> ${escapeHtml(list(names))}</div>`;
+    }).join("");
+    return `<p class="small breakdown-person"><strong>${PERSON[who].emoji} ${PERSON[who].label}</strong></p>
+      <div class="vote-detail">${groups}</div>`;
+  }).join("");
+}
+
+function buildSummary(matches, blocked = []) {
   const group = (predicate) => matches.filter(predicate).map(m => m.name);
   const detailed = matches.filter(m => m.score === 1).map(m =>
+    `${m.name} (Quentin ${icon(m.q)} / Anne‑Cha ${icon(m.a)})`
+  );
+  const blockedList = blocked.map(m =>
     `${m.name} (Quentin ${icon(m.q)} / Anne‑Cha ${icon(m.a)})`
   );
 
@@ -780,19 +854,30 @@ function buildSummary(matches) {
     "⚖️ DÉSACCORDS FORTS",
     list(detailed),
     "",
+    "🚫 AIMÉS MAIS IMPOSSIBLES (quelqu'un de proche porte ce prénom)",
+    list(blockedList),
+    "",
     "❤️ PRÉNOMS AIMÉS PAR QUENTIN",
     list(qLikes),
     "",
     "❤️ PRÉNOMS AIMÉS PAR ANNE-CHA",
     list(aLikes),
     "",
-    "Analyse nos goûts respectifs et communs. Déduis le style de prénoms qui nous attire, puis propose une nouvelle sélection de prénoms différents de ceux déjà testés, avec environ 15 filles et 15 garçons."
+    "Analyse nos goûts respectifs et communs. Les prénoms « impossibles » nous plaisaient mais sont à éviter précisément (quelqu'un de proche les porte) — tu peux en revanche proposer d'autres prénoms dans le même style. Déduis le style de prénoms qui nous attire, puis propose une nouvelle sélection de prénoms différents de ceux déjà testés, avec environ 15 filles et 15 garçons."
   ].join("\n");
 }
 
 function icon(v) {
-  return v === "like" ? "❤️" : v === "maybe" ? "🤔" : v === "no" ? "❌" : "—";
+  return v === "like" ? "❤️" : v === "maybe" ? "🤔" : v === "no" ? "❌" : v === "blocked" ? "🚫" : "—";
 }
+
+const VOTE_ORDER = ["like", "blocked", "maybe", "no"];
+const VOTE_LABEL = {
+  like: "❤️ Aimés",
+  blocked: "🚫 Impossibles (un proche a ce prénom)",
+  maybe: "🤔 Peut-être",
+  no: "❌ Non"
+};
 
 function list(arr) {
   return arr.length ? arr.join(", ") : "Aucun";
