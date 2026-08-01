@@ -587,7 +587,13 @@ function onRemoteValue(snap) {
       data.votes.quentin = remote.votes.quentin || {};
       data.votes.anne = remote.votes.anne || {};
     }
-    if (Array.isArray(remote.history)) data.history = remote.history;
+    if (remote.history) {
+      // Stocké côté Firebase comme un objet {clé: tour}, jamais comme un
+      // tableau à remplacer en bloc, pour que deux téléphones puissent
+      // chacun archiver un tour sans effacer celui de l'autre.
+      data.history = (Array.isArray(remote.history) ? remote.history : Object.values(remote.history))
+        .sort((a, b) => (a.archivedAt || 0) - (b.archivedAt || 0));
+    }
   }
   saveLocal();
   setSyncStatus("online");
@@ -600,10 +606,16 @@ function onRemoteValue(snap) {
 
 // Envoie une seule fois vers Firebase ce qui n'existait que sur ce téléphone
 // (ex: liste par défaut, ou votes déjà faits avant d'activer la synchro).
+function generateHistoryKey() {
+  return `${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
+}
+
 function seedRemoteFromLocal(remote) {
   if (!remote) {
     remoteRef("names").set(data.names);
-    if (data.history.length) remoteRef("history").set(data.history);
+    // Une écriture par tour (clé unique), jamais un .set() du tableau entier :
+    // voir la note dans saveNames().
+    data.history.forEach(entry => remoteRef(`history/${generateHistoryKey()}`).set(entry));
   }
   if (!data.identity) return;
   const localVotes = data.votes[data.identity];
@@ -693,14 +705,16 @@ function saveNames(silent) {
 
   const changed = names.length !== data.names.length || names.some((n, i) => n !== data.names[i]);
   const hadVotes = Object.keys(data.votes.quentin).length > 0 || Object.keys(data.votes.anne).length > 0;
+  let archivedEntry = null;
   if (changed && hadVotes) {
     // Archive le tour précédent avant de le remplacer, pour ne jamais perdre
     // l'accès aux votes déjà faits (visibles ensuite dans "Tous les résultats").
-    data.history.push({
+    archivedEntry = {
       names: [...data.names],
       votes: { quentin: { ...data.votes.quentin }, anne: { ...data.votes.anne } },
       archivedAt: Date.now()
-    });
+    };
+    data.history.push(archivedEntry);
   }
 
   data.names = names;
@@ -717,7 +731,12 @@ function saveNames(silent) {
     // (ils restent consultables dans l'historique).
     remoteRef("votes/quentin").set(data.votes.quentin);
     remoteRef("votes/anne").set(data.votes.anne);
-    if (changed && hadVotes) remoteRef("history").set(data.history);
+    if (archivedEntry) {
+      // Écriture d'une seule clé nouvelle, jamais .set() du tableau complet :
+      // deux téléphones peuvent ainsi archiver un tour chacun sans que l'un
+      // écrase l'historique déjà envoyé par l'autre (bug corrigé ici).
+      remoteRef(`history/${generateHistoryKey()}`).set(archivedEntry);
+    }
   }
   if (!silent) { renderHome(); toast("Liste enregistrée."); }
 }
