@@ -384,7 +384,7 @@
       <details id="namesDetails">
         <summary>Modifier ou remplacer la liste de prénoms</summary>
         <div class="inner">
-          <p class="small">Un prénom par ligne, ou séparés par des virgules. Vous recevez une nouvelle liste de l'IA ? Collez-la ici : elle remplace la sélection actuelle. Les anciens prénoms et leurs votes ne sont pas perdus, ils restent consultables dans « 🔍 Explorer → 🗂️ Tout l'historique ».</p>
+          <p class="small">Un prénom par ligne, ou séparés par des virgules. Vous recevez une nouvelle liste de l'IA ? Collez-la ici : elle remplace la sélection actuelle. Les anciens prénoms et leurs votes ne sont pas perdus, ils restent consultables dans « 🔍 Explorer → 🗂️ Tout l'historique ». Ajoutez « (F) » ou « (M) » après un prénom (ex. « Emma (F) ») pour pouvoir filtrer par genre dans l'explorateur.</p>
           <textarea id="namesInput"></textarea>
           <div class="toolbar">
             <button onclick="saveNames()">Enregistrer la liste</button>
@@ -465,6 +465,7 @@
       <div class="filter-row" id="exploreScope"></div>
       <p class="small" id="exploreCount"></p>
       <input type="search" id="exploreSearch" placeholder="Rechercher un prénom…" oninput="onExploreSearch(this.value)" />
+      <div class="filter-row" id="exploreGenderFilters"></div>
       <div class="filter-row" id="exploreFilters"></div>
       <div id="exploreList"></div>
       <div class="toolbar">
@@ -492,6 +493,10 @@ const defaultNames = [
   "Raphaël","Noé","Basile","Arthur","Félix","Émile","Paul","Nino","Simon","Anatole"
 ];
 
+const defaultGenders = Object.fromEntries(
+  defaultNames.map((n, i) => [n, i < 20 ? "f" : "m"])
+);
+
 const PERSON = {
   quentin: { label: "Quentin", emoji: "👦" },
   anne: { label: "Anne‑Cha", emoji: "👧" }
@@ -503,7 +508,8 @@ let data = {
   names: [...defaultNames],
   identity: null,
   votes: { quentin: {}, anne: {} },
-  history: []
+  history: [],
+  genders: { ...defaultGenders }
 };
 
 let currentIndex = 0;
@@ -522,6 +528,7 @@ function loadLocal() {
   if (!data.votes.quentin) data.votes.quentin = {};
   if (!data.votes.anne) data.votes.anne = {};
   if (!Array.isArray(data.history)) data.history = [];
+  if (!data.genders || typeof data.genders !== "object") data.genders = { ...defaultGenders };
   if (data.identity !== "quentin" && data.identity !== "anne") data.identity = null;
 }
 
@@ -529,8 +536,23 @@ function saveLocal() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
 }
 
-function parseNames(raw) {
-  return [...new Set(raw.split(/[\n,;]+/).map(x => x.trim()).filter(Boolean))];
+// Un prénom par ligne (ou séparés par des virgules), avec un genre optionnel
+// entre parenthèses en fin de ligne : "Emma (F)", "Lucas (M)", "Charlie (fille)"...
+const GENDER_TAG = /^(.*?)\s*\((f|fille|m|garcon|garçon)\)\s*$/i;
+
+function parseNamesWithGender(raw) {
+  const genders = {};
+  const names = [];
+  const seen = new Set();
+  for (const rawLine of raw.split(/[\n,;]+/).map(x => x.trim()).filter(Boolean)) {
+    const m = rawLine.match(GENDER_TAG);
+    const name = (m ? m[1] : rawLine).trim();
+    if (!name || seen.has(name)) continue;
+    seen.add(name);
+    names.push(name);
+    if (m) genders[name] = /^f/i.test(m[2]) ? "f" : "m";
+  }
+  return { names, genders };
 }
 
 // ---------- Toast ----------
@@ -587,6 +609,7 @@ function onRemoteValue(snap) {
       data.votes.quentin = remote.votes.quentin || {};
       data.votes.anne = remote.votes.anne || {};
     }
+    if (remote.genders) data.genders = remote.genders;
     if (remote.history) {
       // Stocké côté Firebase comme un objet {clé: tour}, jamais comme un
       // tableau à remplacer en bloc, pour que deux téléphones puissent
@@ -613,6 +636,7 @@ function generateHistoryKey() {
 function seedRemoteFromLocal(remote) {
   if (!remote) {
     remoteRef("names").set(data.names);
+    remoteRef("genders").set(data.genders);
     // Une écriture par tour (clé unique), jamais un .set() du tableau entier :
     // voir la note dans saveNames().
     data.history.forEach(entry => remoteRef(`history/${generateHistoryKey()}`).set(entry));
@@ -700,7 +724,7 @@ function refreshCurrentView() {
 
 // ---------- Voting ----------
 function saveNames(silent) {
-  const names = parseNames(document.getElementById("namesInput").value);
+  const { names, genders: taggedGenders } = parseNamesWithGender(document.getElementById("namesInput").value);
   if (!names.length) { if (!silent) toast("Ajoutez au moins un prénom."); return; }
 
   const changed = names.length !== data.names.length || names.some((n, i) => n !== data.names[i]);
@@ -712,6 +736,7 @@ function saveNames(silent) {
     archivedEntry = {
       names: [...data.names],
       votes: { quentin: { ...data.votes.quentin }, anne: { ...data.votes.anne } },
+      genders: Object.fromEntries(data.names.filter(n => data.genders[n]).map(n => [n, data.genders[n]])),
       archivedAt: Date.now()
     };
     data.history.push(archivedEntry);
@@ -723,6 +748,15 @@ function saveNames(silent) {
       if (!names.includes(name)) delete data.votes[who][name];
     }
   }
+  // Garde le genre déjà connu d'un prénom qui persiste sans être re-tagué,
+  // applique tout nouveau tag (F)/(M), et oublie les prénoms qui ont disparu.
+  const genders = {};
+  for (const n of names) {
+    if (taggedGenders[n]) genders[n] = taggedGenders[n];
+    else if (data.genders[n]) genders[n] = data.genders[n];
+  }
+  data.genders = genders;
+
   saveLocal();
   if (firebaseEnabled) {
     remoteRef("names").set(names);
@@ -731,6 +765,7 @@ function saveNames(silent) {
     // (ils restent consultables dans l'historique).
     remoteRef("votes/quentin").set(data.votes.quentin);
     remoteRef("votes/anne").set(data.votes.anne);
+    remoteRef("genders").set(data.genders);
     if (archivedEntry) {
       // Écriture d'une seule clé nouvelle, jamais .set() du tableau complet :
       // deux téléphones peuvent ainsi archiver un tour chacun sans que l'un
@@ -897,18 +932,20 @@ function computeAndRenderResults() {
 // données, pour la vue "Tout l'historique" de l'explorateur. En cas de
 // prénom testé sur plusieurs tours, le vote le plus récent l'emporte.
 function collectAllRounds() {
-  const rounds = [...data.history, { names: data.names, votes: data.votes }];
+  const rounds = [...data.history, { names: data.names, votes: data.votes, genders: data.genders }];
   const names = [];
   const seen = new Set();
   const votes = { quentin: {}, anne: {} };
+  const genders = {};
   for (const round of rounds) {
     for (const name of round.names) {
       if (!seen.has(name)) { seen.add(name); names.push(name); }
       if (round.votes.quentin[name] !== undefined) votes.quentin[name] = round.votes.quentin[name];
       if (round.votes.anne[name] !== undefined) votes.anne[name] = round.votes.anne[name];
+      if (round.genders && round.genders[name]) genders[name] = round.genders[name];
     }
   }
-  return { names, votes };
+  return { names, votes, genders };
 }
 
 // ---------- Explorer (recherche + filtres sur tout ce qui est noté par les deux) ----------
@@ -923,9 +960,16 @@ const CATEGORIES = [
   { key: "blocked", label: "🚫 Impossible" }
 ];
 
+const GENDERS = [
+  { key: "all", label: "Tous" },
+  { key: "f", label: "👧 Filles" },
+  { key: "m", label: "👦 Garçons" }
+];
+
 let exploreFilter = "all";
 let exploreQuery = "";
 let exploreScope = "session";
+let exploreGender = "all";
 
 function normalize(str) {
   return str.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
@@ -945,6 +989,15 @@ function setExploreScope(scope) {
 function setExploreFilter(key) {
   exploreFilter = key;
   renderExplore();
+}
+
+function setExploreGender(key) {
+  exploreGender = key;
+  renderExplore();
+}
+
+function genderIcon(g) {
+  return g === "f" ? "👧" : g === "m" ? "👦" : "";
 }
 
 function onExploreSearch(value) {
@@ -967,17 +1020,23 @@ function renderExplore() {
     <button class="${exploreScope === "all" ? "active" : ""}" onclick="setExploreScope('all')">🗂️ Tout l'historique${data.history.length ? ` (${roundCount} tours)` : ""}</button>
   `;
 
+  const genderFiltersEl = document.getElementById("exploreGenderFilters");
+  genderFiltersEl.innerHTML = GENDERS.map(g =>
+    `<button class="${exploreGender === g.key ? "active" : ""}" onclick="setExploreGender('${g.key}')">${g.label}</button>`
+  ).join("");
+
   const filtersEl = document.getElementById("exploreFilters");
   filtersEl.innerHTML = CATEGORIES.map(c =>
     `<button class="${exploreFilter === c.key ? "active" : ""}" onclick="setExploreFilter('${c.key}')">${c.label}</button>`
   ).join("");
 
-  const source = exploreScope === "all" ? collectAllRounds() : { names: data.names, votes: data.votes };
+  const source = exploreScope === "all" ? collectAllRounds() : { names: data.names, votes: data.votes, genders: data.genders };
   const { matches, blocked } = computeMatches(source.names, source.votes);
   const all = [...matches, ...blocked];
   const q = normalize(exploreQuery.trim());
   const filtered = all.filter(m =>
     (exploreFilter === "all" || m.category === exploreFilter) &&
+    (exploreGender === "all" || source.genders[m.name] === exploreGender) &&
     (!q || normalize(m.name).includes(q))
   );
 
@@ -995,7 +1054,8 @@ function renderExplore() {
   filtered.forEach(m => {
     const div = document.createElement("div");
     div.className = "match";
-    div.innerHTML = `<strong>${escapeHtml(m.name)}</strong>
+    const icon = genderIcon(source.genders[m.name]);
+    div.innerHTML = `<strong>${icon ? icon + " " : ""}${escapeHtml(m.name)}</strong>
       <span class="badge ${badgeClass(m)}">${m.label}</span>`;
     container.appendChild(div);
   });
@@ -1051,7 +1111,7 @@ function buildSummary(matches, blocked = []) {
     "❤️ PRÉNOMS AIMÉS PAR ANNE-CHA",
     list(aLikes),
     "",
-    "Analyse nos goûts respectifs et communs. Les prénoms « impossibles » nous plaisaient mais sont à éviter précisément (quelqu'un de proche les porte) — tu peux en revanche proposer d'autres prénoms dans le même style. Déduis le style de prénoms qui nous attire, puis propose une nouvelle sélection de prénoms différents de ceux déjà testés, avec environ 15 filles et 15 garçons."
+    "Analyse nos goûts respectifs et communs. Les prénoms « impossibles » nous plaisaient mais sont à éviter précisément (quelqu'un de proche les porte) — tu peux en revanche proposer d'autres prénoms dans le même style. Déduis le style de prénoms qui nous attire, puis propose une nouvelle sélection de prénoms différents de ceux déjà testés, avec environ 15 filles et 15 garçons. Présente ta liste avec un prénom par ligne, chacun suivi de son genre entre parenthèses, par exemple « Emma (F) » ou « Lucas (M) », pour qu'on puisse la recoller directement dans l'appli."
   ].join("\n");
 }
 
