@@ -103,6 +103,12 @@
       color: var(--accent-dark);
       opacity: .8;
     }
+    .chip.warn {
+      color: var(--no-text);
+      background: var(--no);
+      border-color: transparent;
+    }
+    .chip + .chip { margin-left: 6px; }
     .card {
       background: var(--card);
       backdrop-filter: blur(6px);
@@ -297,6 +303,7 @@
       📱 Ce téléphone : <strong id="identityChipName"></strong>
       <button onclick="changeIdentity()">changer</button>
     </div>
+    <div id="syncChip" class="chip hidden"></div>
   </header>
 
   <section id="picker">
@@ -331,20 +338,8 @@
     </div>
 
     <div class="card">
-      <h2>Synchroniser avec l'autre téléphone</h2>
-      <p class="small">Pas de serveur : vos votes restent sur votre téléphone jusqu'à ce que vous les envoyiez vous‑même, via n'importe quelle appli de message.</p>
-      <div class="toolbar">
-        <button class="primary" onclick="shareVotes()">📤 Envoyer mes votes</button>
-      </div>
-      <details id="importDetails">
-        <summary>Importer un lien reçu manuellement</summary>
-        <div class="inner">
-          <textarea id="importInput" placeholder="Colle ici le lien ou le code reçu"></textarea>
-          <div class="toolbar">
-            <button onclick="importManual()">Importer</button>
-          </div>
-        </div>
-      </details>
+      <h2>Synchronisation</h2>
+      <p class="small" id="syncExplain">Vos votes se synchronisent automatiquement en temps réel avec l'autre téléphone, dès que les deux sont connectés à internet. Rien à envoyer manuellement.</p>
     </div>
 
     <div class="card">
@@ -420,8 +415,14 @@
 
 <div id="toast"></div>
 
+<!-- SDK Firebase (compat, pas de build nécessaire) + config du projet -->
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+<script src="firebase-config.js"></script>
+
 <script>
-const STORAGE_KEY = "quentin-annecha-baby-names-v2";
+const STORAGE_KEY = "quentin-annecha-baby-names-v3";
+const REMOTE_PATH = "prenoms-quentin-annecha";
 
 const defaultNames = [
   "Alma","Adèle","Louise","Alba","Romy","Joséphine","Iris","Charlie","Suzanne","Jeanne",
@@ -444,8 +445,12 @@ let data = {
 };
 
 let currentIndex = 0;
+let currentSection = "picker";
+let db = null;
+let firebaseEnabled = false;
+let seeded = false;
 
-function load() {
+function loadLocal() {
   try {
     const saved = localStorage.getItem(STORAGE_KEY);
     if (saved) data = JSON.parse(saved);
@@ -457,35 +462,12 @@ function load() {
   if (data.identity !== "quentin" && data.identity !== "anne") data.identity = null;
 }
 
-function save() {
+function saveLocal() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
 }
 
-// ---------- URL-safe base64 (unicode aware) ----------
-function b64encode(str) {
-  return btoa(unescape(encodeURIComponent(str)))
-    .replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
-}
-function b64decode(str) {
-  str = str.replace(/-/g, "+").replace(/_/g, "/");
-  while (str.length % 4) str += "=";
-  return decodeURIComponent(escape(atob(str)));
-}
-
-function voteChar(v) { return v === "like" ? "L" : v === "maybe" ? "M" : v === "no" ? "N" : "_"; }
-function charVote(c) { return c === "L" ? "like" : c === "M" ? "maybe" : c === "N" ? "no" : null; }
-
 function parseNames(raw) {
   return [...new Set(raw.split(/[\n,;]+/).map(x => x.trim()).filter(Boolean))];
-}
-
-function mergeNames(local, incoming) {
-  const set = new Set(local);
-  const merged = [...local];
-  for (const n of incoming) {
-    if (!set.has(n)) { merged.push(n); set.add(n); }
-  }
-  return merged;
 }
 
 // ---------- Toast ----------
@@ -498,99 +480,85 @@ function toast(msg, ms = 3200) {
   toastTimer = setTimeout(() => t.classList.remove("show"), ms);
 }
 
-// ---------- Sharing / import ----------
-function buildPayload() {
-  return {
-    v: 1,
-    who: data.identity,
-    names: data.names,
-    votes: data.names.map(n => voteChar(data.votes[data.identity][n])).join("")
+// ---------- Synchronisation Firebase (Realtime Database) ----------
+function setSyncStatus(state) {
+  const chip = document.getElementById("syncChip");
+  const labels = {
+    unconfigured: "⚠️ Firebase non configuré — voir README",
+    connecting: "🟡 Connexion…",
+    online: "🟢 Synchronisé en temps réel",
+    error: "🔴 Hors ligne (vos votes restent sur ce téléphone)"
   };
+  chip.textContent = labels[state] || "";
+  chip.classList.remove("hidden");
+  chip.classList.toggle("warn", state === "unconfigured" || state === "error");
 }
 
-async function shareVotes() {
-  if (!data.identity) { toast("Choisissez d'abord votre profil."); return; }
-  saveNames(true);
-  const payload = buildPayload();
-  const code = b64encode(JSON.stringify(payload));
-  const url = `${location.origin}${location.pathname}#s=${code}`;
-  const text = `Voici mes votes prénoms (${PERSON[data.identity].label}). Ouvre ce lien sur ton téléphone pour les recevoir :`;
+function remoteRef(path) {
+  return db.ref(path ? `${REMOTE_PATH}/${path}` : REMOTE_PATH);
+}
 
-  if (navigator.share) {
-    try {
-      await navigator.share({ title: "Nos prénoms", text, url });
-      return;
-    } catch {
-      // annulé ou indisponible -> on retombe sur la copie
-    }
+function initFirebase() {
+  const cfg = window.FIREBASE_CONFIG;
+  if (!cfg || String(cfg.apiKey || "").includes("REMPLACE_MOI")) {
+    setSyncStatus("unconfigured");
+    return;
   }
   try {
-    await navigator.clipboard.writeText(url);
-    toast("Lien copié ! Colle-le dans un message à ton/ta partenaire.");
-  } catch {
-    window.prompt("Copie ce lien et envoie-le à ton/ta partenaire :", url);
+    firebase.initializeApp(cfg);
+    db = firebase.database();
+    firebaseEnabled = true;
+    setSyncStatus("connecting");
+    remoteRef().on("value", onRemoteValue, () => setSyncStatus("error"));
+  } catch (e) {
+    console.error(e);
+    setSyncStatus("error");
   }
 }
 
-function extractCode(raw) {
-  raw = raw.trim();
-  const idx = raw.indexOf("s=");
-  return idx !== -1 ? raw.slice(idx + 2) : raw;
-}
-
-function importCode(rawCode, opts = {}) {
-  try {
-    const code = extractCode(rawCode);
-    const json = b64decode(code);
-    const payload = JSON.parse(json);
-    if (!payload || (payload.who !== "quentin" && payload.who !== "anne") ||
-        !Array.isArray(payload.names) || typeof payload.votes !== "string") {
-      throw new Error("payload invalide");
+function onRemoteValue(snap) {
+  const remote = snap.val();
+  if (remote) {
+    if (Array.isArray(remote.names) && remote.names.length) data.names = remote.names;
+    if (remote.votes) {
+      data.votes.quentin = remote.votes.quentin || {};
+      data.votes.anne = remote.votes.anne || {};
     }
-    data.names = mergeNames(data.names, payload.names);
-    if (!data.votes[payload.who]) data.votes[payload.who] = {};
-    payload.names.forEach((name, i) => {
-      const v = charVote(payload.votes[i]);
-      if (v) data.votes[payload.who][name] = v;
-    });
-    save();
-    toast(`✅ Votes de ${PERSON[payload.who].label} importés (${payload.names.length} prénoms).`);
-    return true;
-  } catch {
-    if (!opts.silent) toast("Lien ou code invalide.");
-    return false;
   }
+  saveLocal();
+  setSyncStatus("online");
+  if (!seeded) {
+    seeded = true;
+    seedRemoteFromLocal(remote);
+  }
+  refreshCurrentView();
 }
 
-function importManual() {
-  const el = document.getElementById("importInput");
-  if (!el.value.trim()) return;
-  if (importCode(el.value)) {
-    el.value = "";
-    document.getElementById("importDetails").open = false;
+// Envoie une seule fois vers Firebase ce qui n'existait que sur ce téléphone
+// (ex: liste par défaut, ou votes déjà faits avant d'activer la synchro).
+function seedRemoteFromLocal(remote) {
+  if (!remote) remoteRef("names").set(data.names);
+  if (!data.identity) return;
+  const localVotes = data.votes[data.identity];
+  const remoteVotes = (remote && remote.votes && remote.votes[data.identity]) || {};
+  const missing = {};
+  for (const [name, vote] of Object.entries(localVotes)) {
+    if (remoteVotes[name] !== vote) missing[name] = vote;
   }
-  renderHome();
-}
-
-function tryImportFromHash() {
-  const h = location.hash;
-  if (!h.startsWith("#s=")) return;
-  const code = h.slice(3);
-  importCode(code, { silent: false });
-  history.replaceState(null, "", location.pathname + location.search);
+  if (Object.keys(missing).length) remoteRef(`votes/${data.identity}`).update(missing);
 }
 
 // ---------- Identity ----------
 function choosePerson(who) {
   data.identity = who;
-  save();
+  saveLocal();
   renderAll();
 }
 
 function changeIdentity() {
   if (!confirm("Changer le profil de ce téléphone ? (vos votes déjà enregistrés sont conservés)")) return;
   data.identity = null;
-  save();
+  saveLocal();
   renderAll();
 }
 
@@ -604,7 +572,8 @@ function statusText(who) {
 }
 
 function renderHome() {
-  document.getElementById("namesInput").value = data.names.join("\n");
+  const namesInput = document.getElementById("namesInput");
+  if (document.activeElement !== namesInput) namesInput.value = data.names.join("\n");
   document.getElementById("statusQuentin").textContent = statusText("quentin");
   document.getElementById("statusAnne").textContent = statusText("anne");
   document.getElementById("cardQuentin").classList.toggle("you", data.identity === "quentin");
@@ -640,6 +609,15 @@ function renderAll() {
   }
 }
 
+function refreshCurrentView() {
+  if (currentSection === "home") renderHome();
+  else if (currentSection === "results") computeAndRenderResults();
+  else if (currentSection === "voting") {
+    if (currentIndex >= data.names.length) currentIndex = Math.max(0, data.names.length - 1);
+    renderCurrent();
+  }
+}
+
 // ---------- Voting ----------
 function saveNames(silent) {
   const names = parseNames(document.getElementById("namesInput").value);
@@ -650,7 +628,8 @@ function saveNames(silent) {
       if (!names.includes(name)) delete data.votes[who][name];
     }
   }
-  save();
+  saveLocal();
+  if (firebaseEnabled) remoteRef("names").set(names);
   if (!silent) { renderHome(); toast("Liste enregistrée."); }
 }
 
@@ -685,7 +664,8 @@ function castVote(value) {
   const who = data.identity;
   const name = data.names[currentIndex];
   data.votes[who][name] = value;
-  save();
+  saveLocal();
+  if (firebaseEnabled) remoteRef(`votes/${who}/${name}`).set(value);
 
   if (currentIndex < data.names.length - 1) {
     currentIndex++;
@@ -711,7 +691,11 @@ function returnHome() {
 // ---------- Results ----------
 function showResults() {
   saveNames(true);
+  showSection("results");
+  computeAndRenderResults();
+}
 
+function computeAndRenderResults() {
   const hasQ = data.names.some(n => !!data.votes.quentin[n]);
   const hasA = data.names.some(n => !!data.votes.anne[n]);
   const bothCompleted = ["quentin", "anne"].every(who =>
@@ -720,7 +704,7 @@ function showResults() {
 
   const introEl = document.getElementById("resultsIntro");
   if (!hasQ || !hasA) {
-    introEl.textContent = "Il manque encore les votes d'un des deux téléphones. Utilisez « Envoyer mes votes » puis ouvrez le lien reçu sur cet appareil.";
+    introEl.textContent = "Il manque encore les votes de l'autre personne. Ils apparaîtront automatiquement ici dès que son téléphone aura synchronisé.";
   } else if (bothCompleted) {
     introEl.textContent = "Vous avez tous les deux terminé. Voici vos meilleures compatibilités.";
   } else {
@@ -768,7 +752,6 @@ function showResults() {
   }
 
   document.getElementById("summary").textContent = buildSummary(matches);
-  showSection("results");
 }
 
 function buildSummary(matches) {
@@ -842,14 +825,16 @@ function downloadJson() {
 
 function resetVotes() {
   if (!data.identity) return;
-  if (!confirm(`Effacer les votes de ${PERSON[data.identity].label} sur ce téléphone ?`)) return;
+  if (!confirm(`Effacer les votes de ${PERSON[data.identity].label} (sur tous les téléphones synchronisés) ?`)) return;
   data.votes[data.identity] = {};
-  save();
+  saveLocal();
+  if (firebaseEnabled) remoteRef(`votes/${data.identity}`).remove();
   renderHome();
   toast("Vos votes ont été effacés.");
 }
 
 function showSection(id) {
+  currentSection = id;
   ["picker", "home", "voting", "results"].forEach(x =>
     document.getElementById(x).classList.toggle("hidden", x !== id)
   );
@@ -865,9 +850,9 @@ function escapeHtml(str) {
     .replaceAll("'", "&#039;");
 }
 
-load();
-tryImportFromHash();
+loadLocal();
 renderAll();
+initFirebase();
 </script>
 </body>
 </html>
