@@ -384,7 +384,7 @@
       <details id="namesDetails">
         <summary>Modifier ou remplacer la liste de prénoms</summary>
         <div class="inner">
-          <p class="small">Un prénom par ligne, ou séparés par des virgules. Vous recevez une nouvelle liste de l'IA ? Collez-la ici : elle remplace l'ancienne et efface les votes des prénoms qui ont disparu.</p>
+          <p class="small">Un prénom par ligne, ou séparés par des virgules. Vous recevez une nouvelle liste de l'IA ? Collez-la ici : elle remplace la sélection actuelle. Les anciens prénoms et leurs votes ne sont pas perdus, ils restent consultables dans « 🔍 Explorer → 🗂️ Tout l'historique ».</p>
           <textarea id="namesInput"></textarea>
           <div class="toolbar">
             <button onclick="saveNames()">Enregistrer la liste</button>
@@ -462,6 +462,7 @@
   <section id="explore" class="hidden">
     <div class="card">
       <h2>Tous les prénoms notés</h2>
+      <div class="filter-row" id="exploreScope"></div>
       <p class="small" id="exploreCount"></p>
       <input type="search" id="exploreSearch" placeholder="Rechercher un prénom…" oninput="onExploreSearch(this.value)" />
       <div class="filter-row" id="exploreFilters"></div>
@@ -501,7 +502,8 @@ function otherOf(who) { return who === "quentin" ? "anne" : "quentin"; }
 let data = {
   names: [...defaultNames],
   identity: null,
-  votes: { quentin: {}, anne: {} }
+  votes: { quentin: {}, anne: {} },
+  history: []
 };
 
 let currentIndex = 0;
@@ -519,6 +521,7 @@ function loadLocal() {
   if (!data.votes) data.votes = { quentin: {}, anne: {} };
   if (!data.votes.quentin) data.votes.quentin = {};
   if (!data.votes.anne) data.votes.anne = {};
+  if (!Array.isArray(data.history)) data.history = [];
   if (data.identity !== "quentin" && data.identity !== "anne") data.identity = null;
 }
 
@@ -584,6 +587,7 @@ function onRemoteValue(snap) {
       data.votes.quentin = remote.votes.quentin || {};
       data.votes.anne = remote.votes.anne || {};
     }
+    if (Array.isArray(remote.history)) data.history = remote.history;
   }
   saveLocal();
   setSyncStatus("online");
@@ -597,7 +601,10 @@ function onRemoteValue(snap) {
 // Envoie une seule fois vers Firebase ce qui n'existait que sur ce téléphone
 // (ex: liste par défaut, ou votes déjà faits avant d'activer la synchro).
 function seedRemoteFromLocal(remote) {
-  if (!remote) remoteRef("names").set(data.names);
+  if (!remote) {
+    remoteRef("names").set(data.names);
+    if (data.history.length) remoteRef("history").set(data.history);
+  }
   if (!data.identity) return;
   const localVotes = data.votes[data.identity];
   const remoteVotes = (remote && remote.votes && remote.votes[data.identity]) || {};
@@ -683,6 +690,19 @@ function refreshCurrentView() {
 function saveNames(silent) {
   const names = parseNames(document.getElementById("namesInput").value);
   if (!names.length) { if (!silent) toast("Ajoutez au moins un prénom."); return; }
+
+  const changed = names.length !== data.names.length || names.some((n, i) => n !== data.names[i]);
+  const hadVotes = Object.keys(data.votes.quentin).length > 0 || Object.keys(data.votes.anne).length > 0;
+  if (changed && hadVotes) {
+    // Archive le tour précédent avant de le remplacer, pour ne jamais perdre
+    // l'accès aux votes déjà faits (visibles ensuite dans "Tous les résultats").
+    data.history.push({
+      names: [...data.names],
+      votes: { quentin: { ...data.votes.quentin }, anne: { ...data.votes.anne } },
+      archivedAt: Date.now()
+    });
+  }
+
   data.names = names;
   for (const who of ["quentin", "anne"]) {
     for (const name of Object.keys(data.votes[who])) {
@@ -693,9 +713,11 @@ function saveNames(silent) {
   if (firebaseEnabled) {
     remoteRef("names").set(names);
     // .set() (pas .update()) pour bien remplacer entièrement les votes distants
-    // et faire disparaître ceux des prénoms retirés de la liste.
+    // et faire disparaître ceux des prénoms retirés de la liste du tour actuel
+    // (ils restent consultables dans l'historique).
     remoteRef("votes/quentin").set(data.votes.quentin);
     remoteRef("votes/anne").set(data.votes.anne);
+    if (changed && hadVotes) remoteRef("history").set(data.history);
   }
   if (!silent) { renderHome(); toast("Liste enregistrée."); }
 }
@@ -773,12 +795,12 @@ function showResults() {
   computeAndRenderResults();
 }
 
-function computeMatches() {
+function computeMatches(names = data.names, votes = data.votes) {
   const matches = [];
   const blocked = [];
-  for (const name of data.names) {
-    const q = data.votes.quentin[name];
-    const a = data.votes.anne[name];
+  for (const name of names) {
+    const q = votes.quentin[name];
+    const a = votes.anne[name];
     if (!q || !a) continue;
 
     if (q === "blocked" || a === "blocked") {
@@ -852,6 +874,24 @@ function computeAndRenderResults() {
   document.getElementById("summary").textContent = buildSummary(matches, blocked);
 }
 
+// Fusionne tous les tours archivés + le tour actuel en un seul jeu de
+// données, pour la vue "Tout l'historique" de l'explorateur. En cas de
+// prénom testé sur plusieurs tours, le vote le plus récent l'emporte.
+function collectAllRounds() {
+  const rounds = [...data.history, { names: data.names, votes: data.votes }];
+  const names = [];
+  const seen = new Set();
+  const votes = { quentin: {}, anne: {} };
+  for (const round of rounds) {
+    for (const name of round.names) {
+      if (!seen.has(name)) { seen.add(name); names.push(name); }
+      if (round.votes.quentin[name] !== undefined) votes.quentin[name] = round.votes.quentin[name];
+      if (round.votes.anne[name] !== undefined) votes.anne[name] = round.votes.anne[name];
+    }
+  }
+  return { names, votes };
+}
+
 // ---------- Explorer (recherche + filtres sur tout ce qui est noté par les deux) ----------
 const CATEGORIES = [
   { key: "all", label: "Tous" },
@@ -866,6 +906,7 @@ const CATEGORIES = [
 
 let exploreFilter = "all";
 let exploreQuery = "";
+let exploreScope = "session";
 
 function normalize(str) {
   return str.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
@@ -874,6 +915,11 @@ function normalize(str) {
 function openExplore() {
   showSection("explore");
   document.getElementById("exploreSearch").value = exploreQuery;
+  renderExplore();
+}
+
+function setExploreScope(scope) {
+  exploreScope = scope;
   renderExplore();
 }
 
@@ -895,12 +941,20 @@ function badgeClass(m) {
 }
 
 function renderExplore() {
+  const scopeEl = document.getElementById("exploreScope");
+  const roundCount = data.history.length + 1;
+  scopeEl.innerHTML = `
+    <button class="${exploreScope === "session" ? "active" : ""}" onclick="setExploreScope('session')">🗓️ Cette sélection</button>
+    <button class="${exploreScope === "all" ? "active" : ""}" onclick="setExploreScope('all')">🗂️ Tout l'historique${data.history.length ? ` (${roundCount} tours)` : ""}</button>
+  `;
+
   const filtersEl = document.getElementById("exploreFilters");
   filtersEl.innerHTML = CATEGORIES.map(c =>
     `<button class="${exploreFilter === c.key ? "active" : ""}" onclick="setExploreFilter('${c.key}')">${c.label}</button>`
   ).join("");
 
-  const { matches, blocked } = computeMatches();
+  const source = exploreScope === "all" ? collectAllRounds() : { names: data.names, votes: data.votes };
+  const { matches, blocked } = computeMatches(source.names, source.votes);
   const all = [...matches, ...blocked];
   const q = normalize(exploreQuery.trim());
   const filtered = all.filter(m =>
