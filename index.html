@@ -369,6 +369,10 @@
       <div class="toolbar">
         <button class="primary big" id="voteBtn" onclick="startVoting()">Voter</button>
       </div>
+      <div class="toolbar">
+        <button id="revoteBtn" onclick="startVoting(true)">🔀 Revoter au hasard</button>
+      </div>
+      <p class="small">Les perceptions changent : « Revoter au hasard » repasse tous les prénoms du tour actuel dans le désordre pour vous laisser changer d'avis.</p>
     </div>
 
     <div class="card">
@@ -410,6 +414,7 @@
         <div class="progress"><div id="progressBar"></div></div>
         <div class="counter" id="counter"></div>
         <div class="current-name" id="currentName"></div>
+        <div class="counter" id="previousVote"></div>
 
         <div class="vote-buttons">
           <button class="like" onclick="castVote('like')">❤️ J'aime</button>
@@ -513,6 +518,15 @@ let data = {
 };
 
 let currentIndex = 0;
+let votingOrder = [];
+
+function shuffleArray(arr) {
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
 let currentSection = "picker";
 let db = null;
 let firebaseEnabled = false;
@@ -692,14 +706,17 @@ function renderHome() {
   }
 
   const voteBtn = document.getElementById("voteBtn");
+  const revoteBtn = document.getElementById("revoteBtn");
   if (data.identity) {
     const count = data.names.filter(n => !!data.votes[data.identity][n]).length;
     voteBtn.textContent = count === 0 ? "Commencer à voter" :
       count === data.names.length ? "Revoir mes votes" : "Continuer à voter";
     voteBtn.disabled = false;
+    revoteBtn.disabled = count === 0;
   } else {
     voteBtn.textContent = "Choisissez d'abord votre profil";
     voteBtn.disabled = true;
+    revoteBtn.disabled = true;
   }
 }
 
@@ -717,7 +734,7 @@ function refreshCurrentView() {
   else if (currentSection === "results") computeAndRenderResults();
   else if (currentSection === "explore") renderExplore();
   else if (currentSection === "voting") {
-    if (currentIndex >= data.names.length) currentIndex = Math.max(0, data.names.length - 1);
+    if (currentIndex >= votingOrder.length) currentIndex = Math.max(0, votingOrder.length - 1);
     renderCurrent();
   }
 }
@@ -776,24 +793,33 @@ function saveNames(silent) {
   if (!silent) { renderHome(); toast("Liste enregistrée."); }
 }
 
-function startVoting() {
+function startVoting(shuffle) {
   if (!data.identity) return;
   saveNames(true);
   const who = data.identity;
-  const firstUnvoted = data.names.findIndex(n => !data.votes[who][n]);
-  currentIndex = firstUnvoted >= 0 ? firstUnvoted : 0;
+  if (shuffle) {
+    votingOrder = shuffleArray([...data.names]);
+    currentIndex = 0;
+  } else {
+    votingOrder = [...data.names];
+    const firstUnvoted = votingOrder.findIndex(n => !data.votes[who][n]);
+    currentIndex = firstUnvoted >= 0 ? firstUnvoted : 0;
+  }
   showSection("voting");
   renderCurrent();
 }
 
 function renderCurrent(animate) {
-  const name = data.names[currentIndex];
+  const name = votingOrder[currentIndex];
   const person = PERSON[data.identity].label;
   const el = document.getElementById("currentName");
+  const previousVote = data.votes[data.identity][name];
   document.getElementById("voterLabel").textContent = `Vote de ${person}`;
-  document.getElementById("counter").textContent = `${currentIndex + 1} / ${data.names.length}`;
+  document.getElementById("counter").textContent = `${currentIndex + 1} / ${votingOrder.length}`;
   document.getElementById("progressBar").style.width =
-    `${((currentIndex + 1) / data.names.length) * 100}%`;
+    `${((currentIndex + 1) / votingOrder.length) * 100}%`;
+  document.getElementById("previousVote").textContent =
+    previousVote ? `Vote actuel : ${icon(previousVote)}` : "";
 
   if (animate) {
     el.classList.add("swap");
@@ -805,12 +831,12 @@ function renderCurrent(animate) {
 
 function castVote(value) {
   const who = data.identity;
-  const name = data.names[currentIndex];
+  const name = votingOrder[currentIndex];
   data.votes[who][name] = value;
   saveLocal();
   if (firebaseEnabled) remoteRef(`votes/${who}/${name}`).set(value);
 
-  if (currentIndex < data.names.length - 1) {
+  if (currentIndex < votingOrder.length - 1) {
     currentIndex++;
     renderCurrent(true);
   } else {
