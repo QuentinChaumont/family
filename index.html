@@ -372,7 +372,7 @@
       <div class="toolbar">
         <button id="revoteBtn" onclick="startVoting(true)">🔀 Revoter au hasard</button>
       </div>
-      <p class="small">Les perceptions changent : « Revoter au hasard » repasse tous les prénoms du tour actuel dans le désordre pour vous laisser changer d'avis.</p>
+      <p class="small">Les perceptions changent : « Revoter au hasard » repasse dans le désordre tous les prénoms que vous avez déjà notés, tour actuel et tours archivés confondus, pour vous laisser changer d'avis.</p>
     </div>
 
     <div class="card">
@@ -627,8 +627,12 @@ function onRemoteValue(snap) {
     if (remote.history) {
       // Stocké côté Firebase comme un objet {clé: tour}, jamais comme un
       // tableau à remplacer en bloc, pour que deux téléphones puissent
-      // chacun archiver un tour sans effacer celui de l'autre.
-      data.history = (Array.isArray(remote.history) ? remote.history : Object.values(remote.history))
+      // chacun archiver un tour sans effacer celui de l'autre. On garde la
+      // clé sur chaque entrée (_key) pour pouvoir réécrire un vote précis
+      // dans un tour archivé (voir setVoteForName).
+      data.history = (Array.isArray(remote.history)
+        ? remote.history
+        : Object.entries(remote.history).map(([key, entry]) => ({ ...entry, _key: key })))
         .sort((a, b) => (a.archivedAt || 0) - (b.archivedAt || 0));
     }
   }
@@ -653,7 +657,11 @@ function seedRemoteFromLocal(remote) {
     remoteRef("genders").set(data.genders);
     // Une écriture par tour (clé unique), jamais un .set() du tableau entier :
     // voir la note dans saveNames().
-    data.history.forEach(entry => remoteRef(`history/${generateHistoryKey()}`).set(entry));
+    data.history.forEach(entry => {
+      if (!entry._key) entry._key = generateHistoryKey();
+      const { _key, ...toWrite } = entry;
+      remoteRef(`history/${_key}`).set(toWrite);
+    });
   }
   if (!data.identity) return;
   const localVotes = data.votes[data.identity];
@@ -712,7 +720,7 @@ function renderHome() {
     voteBtn.textContent = count === 0 ? "Commencer à voter" :
       count === data.names.length ? "Revoir mes votes" : "Continuer à voter";
     voteBtn.disabled = false;
-    revoteBtn.disabled = count === 0;
+    revoteBtn.disabled = myVotedNames(data.identity).length === 0;
   } else {
     voteBtn.textContent = "Choisissez d'abord votre profil";
     voteBtn.disabled = true;
@@ -749,8 +757,10 @@ function saveNames(silent) {
   let archivedEntry = null;
   if (changed && hadVotes) {
     // Archive le tour précédent avant de le remplacer, pour ne jamais perdre
-    // l'accès aux votes déjà faits (visibles ensuite dans "Tous les résultats").
+    // l'accès aux votes déjà faits (visibles ensuite dans "Tous les résultats"
+    // et re-votables via "Revoter au hasard").
     archivedEntry = {
+      _key: generateHistoryKey(),
       names: [...data.names],
       votes: { quentin: { ...data.votes.quentin }, anne: { ...data.votes.anne } },
       genders: Object.fromEntries(data.names.filter(n => data.genders[n]).map(n => [n, data.genders[n]])),
@@ -787,10 +797,61 @@ function saveNames(silent) {
       // Écriture d'une seule clé nouvelle, jamais .set() du tableau complet :
       // deux téléphones peuvent ainsi archiver un tour chacun sans que l'un
       // écrase l'historique déjà envoyé par l'autre (bug corrigé ici).
-      remoteRef(`history/${generateHistoryKey()}`).set(archivedEntry);
+      const { _key, ...toWrite } = archivedEntry;
+      remoteRef(`history/${_key}`).set(toWrite);
     }
   }
   if (!silent) { renderHome(); toast("Liste enregistrée."); }
+}
+
+// Tous les prénoms déjà votés par `who`, tour actuel + tous les tours
+// archivés confondus (dédupliqués), pour "Revoter au hasard".
+function myVotedNames(who) {
+  const seen = new Set();
+  const names = [];
+  const add = (list, votes) => {
+    for (const n of list) {
+      if (votes[n] !== undefined && !seen.has(n)) { seen.add(n); names.push(n); }
+    }
+  };
+  add(data.names, data.votes[who]);
+  for (const entry of data.history) add(entry.names, entry.votes[who] || {});
+  return names;
+}
+
+// Vote de `who` pour `name`, qu'il appartienne au tour actuel ou à un tour
+// archivé (le plus récent qui le contient si plusieurs, cas rare).
+function getVote(name, who) {
+  if (data.names.includes(name)) return data.votes[who][name];
+  for (let i = data.history.length - 1; i >= 0; i--) {
+    const v = data.history[i].votes[who];
+    if (v && v[name] !== undefined) return v[name];
+  }
+  return undefined;
+}
+
+// Écrit un vote à l'endroit où vit réellement `name` : dans le tour actuel,
+// ou dans l'entrée d'historique correspondante (nécessaire pour "Revoter au
+// hasard" quand le prénom vient d'un tour déjà remplacé).
+function setVoteForName(name, who, value) {
+  if (data.names.includes(name)) {
+    data.votes[who][name] = value;
+    saveLocal();
+    if (firebaseEnabled) remoteRef(`votes/${who}/${name}`).set(value);
+    return;
+  }
+  for (let i = data.history.length - 1; i >= 0; i--) {
+    const entry = data.history[i];
+    if (entry.names.includes(name)) {
+      if (!entry.votes[who]) entry.votes[who] = {};
+      entry.votes[who][name] = value;
+      saveLocal();
+      if (firebaseEnabled && entry._key) {
+        remoteRef(`history/${entry._key}/votes/${who}/${name}`).set(value);
+      }
+      return;
+    }
+  }
 }
 
 function startVoting(shuffle) {
@@ -798,7 +859,8 @@ function startVoting(shuffle) {
   saveNames(true);
   const who = data.identity;
   if (shuffle) {
-    votingOrder = shuffleArray([...data.names]);
+    votingOrder = shuffleArray(myVotedNames(who));
+    if (!votingOrder.length) { toast("Aucun prénom déjà voté à reconsidérer."); return; }
     currentIndex = 0;
   } else {
     votingOrder = [...data.names];
@@ -813,7 +875,7 @@ function renderCurrent(animate) {
   const name = votingOrder[currentIndex];
   const person = PERSON[data.identity].label;
   const el = document.getElementById("currentName");
-  const previousVote = data.votes[data.identity][name];
+  const previousVote = getVote(name, data.identity);
   document.getElementById("voterLabel").textContent = `Vote de ${person}`;
   document.getElementById("counter").textContent = `${currentIndex + 1} / ${votingOrder.length}`;
   document.getElementById("progressBar").style.width =
@@ -832,9 +894,7 @@ function renderCurrent(animate) {
 function castVote(value) {
   const who = data.identity;
   const name = votingOrder[currentIndex];
-  data.votes[who][name] = value;
-  saveLocal();
-  if (firebaseEnabled) remoteRef(`votes/${who}/${name}`).set(value);
+  setVoteForName(name, who, value);
 
   if (currentIndex < votingOrder.length - 1) {
     currentIndex++;
