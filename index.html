@@ -11,15 +11,14 @@
   <title>Nos prénoms — Quentin &amp; Anne‑Cha</title>
   <style>
     :root {
-      --bg-1: #fbf3ea;
-      --bg-2: #f3e6da;
-      --card: rgba(255,255,255,.86);
+      --bg-1: #faf5ee;
+      --card: #fffdfa;
       --card-solid: #fffdfa;
       --text: #2b2620;
       --muted: #85796d;
-      --border: #e9dcc9;
-      --accent: #b5623c;
-      --accent-dark: #8f4a2c;
+      --border: #e5d8c8;
+      --accent: #a85a37;
+      --accent-dark: #7c4429;
       --accent-contrast: #ffffff;
       --like: #d9efdd;
       --like-text: #2f6b3f;
@@ -29,20 +28,19 @@
       --no-text: #93392f;
       --blocked: #e6dcf5;
       --blocked-text: #5c4a8a;
-      --shadow: 0 10px 30px rgba(80, 55, 30, .08);
-      --radius: 20px;
+      --shadow: 0 1px 2px rgba(60, 40, 20, .06);
+      --radius: 16px;
     }
     @media (prefers-color-scheme: dark) {
       :root {
         --bg-1: #1c1814;
-        --bg-2: #241d17;
-        --card: rgba(38, 32, 27, .82);
+        --card: #241f1a;
         --card-solid: #241f1a;
         --text: #f3ece2;
         --muted: #a89b8b;
         --border: #3c332a;
-        --accent: #e08a5f;
-        --accent-dark: #f2a377;
+        --accent: #d97f52;
+        --accent-dark: #e89a71;
         --accent-contrast: #241a13;
         --like: #1f3427;
         --like-text: #8fd6a3;
@@ -52,7 +50,7 @@
         --no-text: #f0938a;
         --blocked: #362e47;
         --blocked-text: #c6b3f0;
-        --shadow: 0 10px 30px rgba(0,0,0,.35);
+        --shadow: 0 1px 2px rgba(0,0,0,.3);
       }
     }
     * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
@@ -60,10 +58,7 @@
     body {
       margin: 0;
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
-      background:
-        radial-gradient(1200px 600px at 15% -10%, var(--bg-2), transparent),
-        radial-gradient(900px 500px at 110% 10%, var(--bg-2), transparent),
-        var(--bg-1);
+      background: var(--bg-1);
       color: var(--text);
       min-height: 100vh;
     }
@@ -78,11 +73,10 @@
       font-size: 1.9rem;
       margin: 6px 0 2px;
       letter-spacing: -.02em;
-      background: linear-gradient(90deg, var(--accent-dark), var(--accent));
-      -webkit-background-clip: text;
-      background-clip: text;
-      color: transparent;
+      color: var(--accent-dark);
+      cursor: pointer;
     }
+    h1:active { opacity: .7; }
     h2 { margin-top: 0; font-size: 1.15rem; }
     p { color: var(--muted); line-height: 1.5; margin: 6px 0; }
     .subtitle { margin-top: 0; text-align: center; }
@@ -93,8 +87,8 @@
       font-size: .82rem;
       font-weight: 650;
       color: var(--accent-dark);
-      background: color-mix(in srgb, var(--accent) 14%, transparent);
-      border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
+      background: var(--card-solid);
+      border: 1px solid var(--border);
       padding: 5px 12px;
       border-radius: 999px;
       margin: 8px auto 0;
@@ -115,17 +109,11 @@
     .chip + .chip { margin-left: 6px; }
     .card {
       background: var(--card);
-      backdrop-filter: blur(6px);
       border: 1px solid var(--border);
       border-radius: var(--radius);
       padding: 18px;
       margin-top: 14px;
       box-shadow: var(--shadow);
-      animation: rise .35s ease both;
-    }
-    @keyframes rise {
-      from { opacity: 0; transform: translateY(8px); }
-      to { opacity: 1; transform: translateY(0); }
     }
     textarea, input[type="search"] {
       width: 100%;
@@ -152,9 +140,9 @@
       border-radius: 999px;
     }
     .filter-row button.active {
-      background: linear-gradient(135deg, var(--accent), var(--accent-dark));
+      background: var(--accent);
       color: var(--accent-contrast);
-      border-color: transparent;
+      border-color: var(--accent);
     }
     button {
       appearance: none;
@@ -171,10 +159,9 @@
     }
     button:active { transform: scale(.97); }
     button.primary {
-      background: linear-gradient(135deg, var(--accent), var(--accent-dark));
+      background: var(--accent);
       color: var(--accent-contrast);
-      border-color: transparent;
-      box-shadow: 0 6px 16px color-mix(in srgb, var(--accent) 45%, transparent);
+      border-color: var(--accent);
     }
     button.ghost {
       background: transparent;
@@ -208,7 +195,7 @@
       background: var(--card-solid);
       text-align: center;
     }
-    .person-card.you { border-color: color-mix(in srgb, var(--accent) 55%, var(--border)); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 12%, transparent); }
+    .person-card.you { border-color: var(--accent); border-width: 2px; }
     .person-emoji { font-size: 1.6rem; }
     .person-name { font-weight: 800; font-size: 1.1rem; margin: 2px 0 4px; }
     .person-status { color: var(--muted); font-size: .85rem; margin-bottom: 12px; min-height: 1.2em; }
@@ -245,14 +232,14 @@
     .blocked { background: var(--blocked); color: var(--blocked-text); }
     .progress {
       height: 8px;
-      background: color-mix(in srgb, var(--border) 70%, transparent);
+      background: var(--border);
       border-radius: 99px;
       overflow: hidden;
       margin: 6px 0 14px;
     }
     .progress > div {
       height: 100%;
-      background: linear-gradient(90deg, var(--accent), var(--accent-dark));
+      background: var(--accent);
       transition: width .25s ease;
     }
     .match {
@@ -313,7 +300,7 @@
       border-radius: 999px;
       font-size: .9rem;
       font-weight: 600;
-      box-shadow: 0 10px 26px rgba(0,0,0,.25);
+      box-shadow: 0 2px 10px rgba(0,0,0,.2);
       opacity: 0;
       pointer-events: none;
       transition: opacity .2s ease, transform .2s ease;
@@ -331,7 +318,7 @@
 <div class="container">
   <header class="top">
     <div class="emoji">🧸</div>
-    <h1>Nos prénoms</h1>
+    <h1 role="button" tabindex="0" onclick="renderAll()" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();renderAll();}">Nos prénoms</h1>
     <p class="subtitle">Quentin &amp; Anne‑Cha</p>
     <div id="identityChip" class="chip hidden">
       📱 Ce téléphone : <strong id="identityChipName"></strong>
